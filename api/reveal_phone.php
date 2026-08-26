@@ -2,53 +2,53 @@
 require_once __DIR__ . '/helpers.php';
 send_cors_headers();
 
-// Trả về số điện thoại/Zalo THẬT của 1 thành viên khi bấm nút — familyData chỉ chứa bản đã
-// che, nên đây là đường duy nhất lấy được số thật. field=phone (mặc định) hoặc field=zalo.
-//
-// Bắt buộc đã xác thực là người trong dòng họ: id thành viên có quy luật dễ đoán
-// (gen_3_1, gen_4_2...), nên nếu để công khai thì người ngoài vẫn quét được toàn bộ danh bạ
-// dòng họ dù gia phả đã bị khoá. Giới hạn tần suất bên dưới giữ nguyên để ngay cả người
-// trong họ cũng không tải hàng loạt được.
-
-if ($_SERVER['REQUEST_METHOD'] !== 'GET') {
+if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
   json_error('Method not allowed', 405);
 }
 
 require_family_access();
 
-$pdo = get_db();
-$memberId = trim($_GET['memberId'] ?? '');
+$body = read_json_body();
+$memberId = trim($body['memberId'] ?? '');
 if ($memberId === '') {
-  json_error('Thiếu memberId.', 400);
+  json_error('Thiếu mã thành viên cần xem.', 400);
 }
 
-$field = $_GET['field'] ?? 'phone';
-if (!in_array($field, ['phone', 'zalo'], true)) {
-  json_error('Tham số field không hợp lệ.', 400);
-}
+$pdo = get_db();
+$tenantId = get_current_tenant_id($pdo);
+$ip = get_client_ip();
 
-// Giới hạn nhẹ theo IP để hạn chế việc dò quét số điện thoại/Zalo hàng loạt qua endpoint này.
-$ip = $_SERVER['REMOTE_ADDR'] ?? 'unknown';
-$stmt = $pdo->prepare(
-  "SELECT COUNT(*) AS c FROM phone_reveal_log WHERE ip = ? AND revealed_at > (NOW() - INTERVAL 1 MINUTE)"
-);
-$stmt->execute([$ip]);
-if ((int)$stmt->fetch()['c'] >= 15) {
-  json_error('Bạn thao tác quá nhanh, vui lòng thử lại sau ít phút.', 429);
-}
+try {
+  $stmt = $pdo->prepare(
+    "SELECT COUNT(*) AS c FROM phone_reveal_log
+     WHERE tenant_id = ? AND ip = ? AND revealed_at > (NOW() - INTERVAL 1 HOUR)"
+  );
+  $stmt->execute([$tenantId, $ip]);
+  if ((int)$stmt->fetch()['c'] >= 30) {
+    json_error('Bạn đã xem quá nhiều số điện thoại trong 1 giờ. Vui lòng thử lại sau.', 429);
+  }
+} catch (PDOException $e) {}
 
 $tree = get_family_tree($pdo);
-$member = $tree ? find_family_node($tree, $memberId) : null;
-if ($member === null) {
-  json_error('Không tìm thấy thành viên này.', 404);
+$node = find_family_node($tree, $memberId);
+if ($node === null) {
+  json_error('Không tìm thấy thành viên trong cây gia phả.', 404);
 }
 
-$value = trim($member[$field] ?? '');
-if ($value === '') {
-  json_error($field === 'zalo' ? 'Người này chưa có Zalo.' : 'Người này chưa có số điện thoại.', 404);
+try {
+  $stmt = $pdo->prepare(
+    'INSERT INTO phone_reveal_log (tenant_id, ip, member_id) VALUES (?, ?, ?)'
+  );
+  $stmt->execute([$tenantId, $ip, $memberId]);
+} catch (PDOException $e) {
+  try {
+    $stmt = $pdo->prepare('INSERT INTO phone_reveal_log (ip, member_id) VALUES (?, ?)');
+    $stmt->execute([$ip, $memberId]);
+  } catch (PDOException $e2) {}
 }
 
-$log = $pdo->prepare('INSERT INTO phone_reveal_log (ip, member_id) VALUES (?, ?)');
-$log->execute([$ip, $memberId]);
-
-json_response(['value' => $value]);
+json_response([
+  'memberId' => $memberId,
+  'phone' => (string)($node['phone'] ?? ''),
+  'zalo' => (string)($node['zalo'] ?? ''),
+]);

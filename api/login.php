@@ -6,61 +6,87 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
   json_error('Method not allowed', 405);
 }
 
-const LOGIN_WINDOW_MINUTES = 15;
-const LOGIN_MAX_FAILURES_PER_IP = 15;      // chặn quét nhiều tài khoản từ cùng 1 máy
-const LOGIN_MAX_FAILURES_PER_ACCOUNT = 5;  // chặn dò mật khẩu của 1 tài khoản cụ thể
-
 $body = read_json_body();
 $username = trim($body['username'] ?? '');
-$password = (string)($body['password'] ?? '');
+$password = $body['password'] ?? '';
 
 if ($username === '' || $password === '') {
-  json_error('Vui lòng nhập tên đăng nhập và mật khẩu.');
-}
-
-// Khoá tạm khi có dấu hiệu dò mật khẩu. Đếm cả theo IP lẫn theo tài khoản: chỉ đếm theo IP
-// thì đổi IP là thoát; chỉ đếm theo tài khoản thì lại cho phép quét lần lượt nhiều tài khoản.
-if (count_recent_auth_failures('login', null, LOGIN_WINDOW_MINUTES) >= LOGIN_MAX_FAILURES_PER_IP
-    || count_recent_auth_failures('login', $username, LOGIN_WINDOW_MINUTES) >= LOGIN_MAX_FAILURES_PER_ACCOUNT) {
-  json_error('Đăng nhập sai quá nhiều lần. Vui lòng thử lại sau ' . LOGIN_WINDOW_MINUTES . ' phút, hoặc liên hệ quản trị viên để được cấp lại mật khẩu.', 429);
+  json_error('Vui lòng nhập tên đăng nhập và mật khẩu.', 400);
 }
 
 $pdo = get_db();
-$stmt = $pdo->prepare('SELECT id, password_hash, full_name, role, chi_id, year_assigned FROM users WHERE username = ?');
-$stmt->execute([$username]);
-$user = $stmt->fetch();
+$tenantId = get_current_tenant_id($pdo);
 
-// Không có tài khoản thì vẫn chạy password_verify với 1 hash giả, để thời gian phản hồi
-// của "sai tên đăng nhập" và "sai mật khẩu" xấp xỉ nhau — nếu bỏ qua bước này, kẻ tấn công
-// đo thời gian phản hồi là biết được tên đăng nhập nào có thật.
-const DUMMY_HASH = '$2y$10$usesomesillystringfoxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx';
-$passwordOk = $user
-  ? password_verify($password, $user['password_hash'])
-  : (password_verify($password, DUMMY_HASH) && false);
+// 1. Chống dò mật khẩu (Brute-force protection)
+$recentIpFailures = count_recent_auth_failures('login', null, 15, $pdo);
+$recentAccountFailures = count_recent_auth_failures('login', $username, 15, $pdo);
 
-if (!$user || !$passwordOk) {
-  log_auth_attempt('login', $username, false);
-  json_error('Tài khoản hoặc mật khẩu không chính xác!', 401);
+if ($recentIpFailures >= 10 || $recentAccountFailures >= 5) {
+  log_auth_attempt('login', $username, false, $pdo);
+  json_error('Đăng nhập sai quá nhiều lần. Vui lòng thử lại sau 15 phút.', 429);
 }
 
-log_auth_attempt('login', $username, true);
+try {
+  $stmt = $pdo->prepare(
+    'SELECT u.id, u.tenant_id, u.username, u.password_hash, u.full_name, u.role, u.chi_id, u.year_assigned, c.name AS chi_name
+     FROM users u
+     LEFT JOIN chi c ON c.id = u.chi_id AND c.tenant_id = u.tenant_id
+     WHERE u.tenant_id = ? AND u.username = ?'
+  );
+  $stmt->execute([$tenantId, $username]);
+  $user = $stmt->fetch();
+} catch (PDOException $e) {
+  $stmt = $pdo->prepare(
+    'SELECT u.id, u.username, u.password_hash, u.full_name, u.role, u.chi_id, u.year_assigned, c.name AS chi_name
+     FROM users u
+     LEFT JOIN chi c ON c.id = u.chi_id
+     WHERE u.username = ?'
+  );
+  $stmt->execute([$username]);
+  $user = $stmt->fetch();
+}
 
-// Tạo token ngẫu nhiên, hết hạn sau 30 ngày
+if (!$user || !password_verify($password, $user['password_hash'])) {
+  log_auth_attempt('login', $username, false, $pdo);
+  json_error('Tên đăng nhập hoặc mật khẩu không chính xác.', 401);
+}
+
+log_auth_attempt('login', $username, true, $pdo);
+
 $token = bin2hex(random_bytes(32));
-$expiresAt = date('Y-m-d H:i:s', strtotime('+30 days'));
+$expiresAt = date('Y-m-d H:i:s', time() + 7 * 86400); // 7 ngày
 
-$stmt = $pdo->prepare('INSERT INTO user_sessions (token, user_id, expires_at) VALUES (?, ?, ?)');
-$stmt->execute([$token, $user['id'], $expiresAt]);
+try {
+  $stmt = $pdo->prepare(
+    'INSERT INTO user_sessions (token, tenant_id, user_id, expires_at) VALUES (?, ?, ?, ?)'
+  );
+  $stmt->execute([$token, $tenantId, $user['id']]);
+} catch (PDOException $e) {
+  $stmt = $pdo->prepare(
+    'INSERT INTO user_sessions (token, user_id, expires_at) VALUES (?, ?, ?)'
+  );
+  $stmt->execute([$token, $user['id'], $expiresAt]);
+}
+
+$tenant = get_current_tenant($pdo);
 
 json_response([
-  'success' => true,
   'token' => $token,
   'user' => [
     'id' => (int)$user['id'],
-    'username' => $username,
+    'tenantId' => $tenantId,
+    'username' => $user['username'],
     'fullName' => $user['full_name'],
     'role' => $user['role'],
     'chiId' => $user['chi_id'] !== null ? (int)$user['chi_id'] : null,
+    'chiName' => $user['chi_name'] ?? null,
     'yearAssigned' => $user['year_assigned'] !== null ? (int)$user['year_assigned'] : null,
   ],
+  'tenant' => [
+    'id' => (int)$tenant['id'],
+    'slug' => $tenant['slug'],
+    'name' => $tenant['name'],
+    'plan' => $tenant['plan'] ?? 'standard',
+    'logo' => $tenant['logo'] ?? null,
+  ]
 ]);

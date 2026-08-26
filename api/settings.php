@@ -2,42 +2,61 @@
 require_once __DIR__ . '/helpers.php';
 send_cors_headers();
 
-// Cấu hình câu hỏi xác thực con cháu (ngày tế họ hàng năm, âm lịch).
-// CHỈ admin được đọc và ghi — đây là đáp án của câu hỏi bảo vệ toàn bộ dữ liệu dòng họ,
-// tuyệt đối không để lộ qua endpoint công khai nào.
-
 $pdo = get_db();
+$tenantId = get_current_tenant_id($pdo);
 
 if ($_SERVER['REQUEST_METHOD'] === 'GET') {
-  require_role(['admin']);
-  json_response([
-    'teHoDay' => (int)get_setting('te_ho_day', '0'),
-    'teHoMonth' => (int)get_setting('te_ho_month', '0'),
-  ]);
-}
+  $keysParam = $_GET['keys'] ?? '';
+  $keys = array_filter(array_map('trim', explode(',', $keysParam)));
 
-if ($_SERVER['REQUEST_METHOD'] === 'PUT') {
-  require_role(['admin']);
-  $body = read_json_body();
-  $day = (int)($body['teHoDay'] ?? 0);
-  $month = (int)($body['teHoMonth'] ?? 0);
-
-  // Âm lịch: tháng 1-12, ngày 1-30 (tháng âm lịch nhiều nhất 30 ngày).
-  if ($day < 1 || $day > 30 || $month < 1 || $month > 12) {
-    json_error('Ngày tế họ không hợp lệ: ngày phải từ 1 đến 30, tháng từ 1 đến 12 (âm lịch).');
+  if (empty($keys)) {
+    $keys = ['te_ho_day', 'te_ho_month'];
   }
 
+  $placeholders = implode(',', array_fill(0, count($keys), '?'));
+  $params = array_merge([$tenantId], $keys);
+
+  try {
+    $stmt = $pdo->prepare("SELECT setting_key, setting_value FROM site_settings WHERE tenant_id = ? AND setting_key IN ($placeholders)");
+    $stmt->execute($params);
+    $rows = $stmt->fetchAll();
+  } catch (PDOException $e) {
+    $stmt = $pdo->prepare("SELECT setting_key, setting_value FROM site_settings WHERE setting_key IN ($placeholders)");
+    $stmt->execute($keys);
+    $rows = $stmt->fetchAll();
+  }
+
+  $result = [];
+  foreach ($rows as $r) {
+    $result[$r['setting_key']] = $r['setting_value'];
+  }
+
+  json_response($result);
+}
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+  require_role(['admin']);
+  $body = read_json_body();
+
+  $allowed = ['te_ho_day', 'te_ho_month'];
   $stmt = $pdo->prepare(
-    'INSERT INTO site_settings (setting_key, setting_value) VALUES (?, ?)
+    'INSERT INTO site_settings (tenant_id, setting_key, setting_value) VALUES (?, ?, ?)
      ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value)'
   );
-  $stmt->execute(['te_ho_day', (string)$day]);
-  $stmt->execute(['te_ho_month', (string)$month]);
 
-  // Đổi câu hỏi xác thực thì huỷ toàn bộ phiên đã cấp trước đó — nếu không, người đã xác
-  // thực bằng đáp án CŨ vẫn xem được, khiến việc đổi đáp án (VD vì nghi bị lộ ra ngoài họ)
-  // không có tác dụng thu hồi.
-  $pdo->exec('DELETE FROM viewer_sessions');
+  foreach ($body as $k => $v) {
+    if (in_array($k, $allowed, true)) {
+      try {
+        $stmt->execute([$tenantId, $k, (string)$v]);
+      } catch (PDOException $e) {
+        $stmtFallback = $pdo->prepare(
+          'INSERT INTO site_settings (setting_key, setting_value) VALUES (?, ?)
+           ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value)'
+        );
+        $stmtFallback->execute([$k, (string)$v]);
+      }
+    }
+  }
 
   json_response(['success' => true]);
 }

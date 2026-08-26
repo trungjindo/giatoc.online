@@ -29,3 +29,9 @@ yarn-error.log*
 
 # Claude Code local settings (per-machine)
 .claude/settings.local.json
+
+# Local packaging & temporary files
+production_dist/
+*.zip
+~$*
+

@@ -8,9 +8,16 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 
 $header = get_authorization_header();
 if (preg_match('/Bearer\s+(\S+)/i', $header, $m)) {
+  $token = $m[1];
   $pdo = get_db();
-  $stmt = $pdo->prepare('DELETE FROM user_sessions WHERE token = ?');
-  $stmt->execute([$m[1]]);
+  $tenantId = get_current_tenant_id($pdo);
+  try {
+    $stmt = $pdo->prepare('DELETE FROM user_sessions WHERE token = ? AND tenant_id = ?');
+    $stmt->execute([$token, $tenantId]);
+  } catch (PDOException $e) {
+    $stmt = $pdo->prepare('DELETE FROM user_sessions WHERE token = ?');
+    $stmt->execute([$token]);
+  }
 }
 
 json_response(['success' => true]);

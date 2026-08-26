@@ -10,6 +10,7 @@ import AdminBaiBien from '../components/AdminBaiBien';
 import AdminTombs from '../components/AdminTombs';
 import AssetManagement from '../components/AssetManagement';
 import AdminPromoBanners from '../components/AdminPromoBanners';
+import MessagingWalletTab from '../components/MessagingWalletTab';
 import { INCOME_CATEGORIES, formatCurrency, computeFinanceSummary, getAvailableYears, getYear } from '../utils/finance';
 import { apiUpload, apiRequest } from '../api';
 
@@ -453,6 +454,13 @@ function AdminDashboard() {
               >
                 Quảng Cáo Thành Viên
               </button>
+              <button
+                onClick={() => setActiveTab('wallet')}
+                className={`btn-primary tab-btn ${activeTab === 'wallet' ? '' : 'inactive-tab'}`}
+                style={{ background: activeTab === 'wallet' ? 'var(--primary-color)' : 'transparent', color: activeTab === 'wallet' ? 'white' : 'var(--text-primary)', boxShadow: 'none' }}
+              >
+                Ví & Tin Nhắn Zalo
+              </button>
             </>
           )}
         </div>
@@ -861,6 +869,7 @@ function AdminDashboard() {
       {activeTab === 'chi' && isSuperAdmin && <AdminChiManager />}
       {activeTab === 'users' && isSuperAdmin && <AdminUserManager />}
       {activeTab === 'promoBanners' && isSuperAdmin && <AdminPromoBanners />}
+      {activeTab === 'wallet' && isSuperAdmin && <MessagingWalletTab token={token} />}
     </div>
   );
 }

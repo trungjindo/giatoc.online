@@ -30,6 +30,10 @@ export const AppProvider = ({ children }) => {
     const saved = localStorage.getItem('familyViewerMember');
     return saved ? JSON.parse(saved) : null;
   });
+  const [tenant, setTenant] = useState(() => {
+    const saved = localStorage.getItem('currentTenant');
+    return saved ? JSON.parse(saved) : { id: 1, slug: 'hotrandinh', name: 'Dòng Họ Trần Đình', plan: 'premium' };
+  });
   // Quản trị viên đã đăng nhập đương nhiên là người trong họ — không bắt xác thực lại.
   const isFamilyVerified = isAuthenticated || !!viewerToken;
 
@@ -119,11 +123,15 @@ export const AppProvider = ({ children }) => {
   // "sai mật khẩu" thì người nhập đúng mật khẩu sẽ không hiểu vì sao mãi không vào được.
   const login = async (username, password) => {
     const result = await apiLogin(username, password);
-    if (result.ok && result.success) {
+    if (result.ok && result.token && result.user) {
       setToken(result.token);
       setUser(result.user || null);
       localStorage.setItem('authToken', result.token);
       localStorage.setItem('authUser', JSON.stringify(result.user || null));
+      if (result.tenant) {
+        setTenant(result.tenant);
+        localStorage.setItem('currentTenant', JSON.stringify(result.tenant));
+      }
       return { ok: true };
     }
     return { ok: false, error: result.error || 'Tài khoản hoặc mật khẩu không chính xác!' };
@@ -163,6 +171,7 @@ export const AppProvider = ({ children }) => {
     <AppContext.Provider value={{
       isAuthenticated, login, logout, token,
       user, role, chiId,
+      tenant, setTenant,
       isFamilyVerified, viewerMember, verifyFamily, clearFamilyVerification,
       isLoading, loadError,
       familyData, setFamilyData,

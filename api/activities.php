@@ -3,120 +3,113 @@ require_once __DIR__ . '/helpers.php';
 send_cors_headers();
 
 $pdo = get_db();
-
-// Lấy chi_id + year của 1 hoạt động theo id, dùng để kiểm tra quyền trước khi sửa/xóa.
-function get_activity_scope($pdo, int $id): ?array {
-  $stmt = $pdo->prepare('SELECT chi_id, year FROM activities WHERE id = ?');
-  $stmt->execute([$id]);
-  $row = $stmt->fetch();
-  return $row ?: null;
-}
+$tenantId = get_current_tenant_id($pdo);
 
 if ($_SERVER['REQUEST_METHOD'] === 'GET') {
-  $where = [];
-  $params = [];
+  require_family_access();
+  $chiId = isset($_GET['chi_id']) ? (int)$_GET['chi_id'] : null;
+  $year = isset($_GET['year']) ? (int)$_GET['year'] : null;
 
-  if (isset($_GET['chiId'])) {
-    if ($_GET['chiId'] === 'null' || $_GET['chiId'] === '') {
-      $where[] = 'a.chi_id IS NULL';
-    } else {
-      $where[] = 'a.chi_id = ?';
-      $params[] = (int)$_GET['chiId'];
-    }
-  }
-  if (isset($_GET['year']) && $_GET['year'] !== '') {
-    $where[] = 'a.year = ?';
-    $params[] = (int)$_GET['year'];
-  }
-
-  $sql = 'SELECT a.id, a.chi_id, a.year, a.title, a.description, a.created_at, c.name AS chi_name, u.full_name AS created_by_name
+  $sql = 'SELECT a.id, a.chi_id, a.year, a.title, a.description, a.created_at, u.full_name AS created_by_name, c.name AS chi_name
           FROM activities a
-          LEFT JOIN chi c ON c.id = a.chi_id
-          LEFT JOIN users u ON u.id = a.created_by';
-  if ($where) $sql .= ' WHERE ' . implode(' AND ', $where);
+          LEFT JOIN users u ON u.id = a.created_by AND u.tenant_id = a.tenant_id
+          LEFT JOIN chi c ON c.id = a.chi_id AND c.tenant_id = a.tenant_id
+          WHERE a.tenant_id = ?';
+  $params = [$tenantId];
+
+  if ($chiId !== null) {
+    $sql .= ' AND a.chi_id = ?';
+    $params[] = $chiId;
+  }
+  if ($year !== null) {
+    $sql .= ' AND a.year = ?';
+    $params[] = $year;
+  }
   $sql .= ' ORDER BY a.year DESC, a.created_at DESC';
 
-  $stmt = $pdo->prepare($sql);
-  $stmt->execute($params);
-  $rows = $stmt->fetchAll();
+  try {
+    $stmt = $pdo->prepare($sql);
+    $stmt->execute($params);
+    $rows = $stmt->fetchAll();
+  } catch (PDOException $e) {
+    $stmt = $pdo->query('SELECT a.id, a.chi_id, a.year, a.title, a.description, a.created_at, u.full_name AS created_by_name, c.name AS chi_name FROM activities a LEFT JOIN users u ON u.id = a.created_by LEFT JOIN chi c ON c.id = a.chi_id ORDER BY a.year DESC');
+    $rows = $stmt->fetchAll();
+  }
 
-  $result = array_map(function ($row) {
+  $list = array_map(function ($r) {
     return [
-      'id' => (int)$row['id'],
-      'chiId' => $row['chi_id'] !== null ? (int)$row['chi_id'] : null,
-      'chiName' => $row['chi_name'],
-      'year' => (int)$row['year'],
-      'title' => $row['title'],
-      'description' => $row['description'],
-      'createdByName' => $row['created_by_name'],
-      'createdAt' => $row['created_at'],
+      'id' => (int)$r['id'],
+      'chiId' => $r['chi_id'] !== null ? (int)$r['chi_id'] : null,
+      'chiName' => $r['chi_name'] ?? null,
+      'year' => (int)$r['year'],
+      'title' => $r['title'],
+      'description' => $r['description'],
+      'createdByName' => $r['created_by_name'] ?? null,
+      'createdAt' => $r['created_at'],
     ];
   }, $rows);
 
-  json_response($result);
+  json_response($list);
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-  $currentUser = require_auth();
+  $user = require_auth();
   $body = read_json_body();
-  $chiId = isset($body['chiId']) && $body['chiId'] !== null && $body['chiId'] !== '' ? (int)$body['chiId'] : null;
+  $chiId = !empty($body['chiId']) ? (int)$body['chiId'] : null;
   $year = (int)($body['year'] ?? 0);
   $title = trim($body['title'] ?? '');
   $description = trim($body['description'] ?? '');
 
-  if ($year <= 0 || $title === '') {
-    json_error('Vui lòng nhập năm và tiêu đề hoạt động.');
+  if ($year < 1900 || $year > 2100 || $title === '') {
+    json_error('Vui lòng nhập năm và tiêu đề hoạt động.', 400);
   }
 
-  require_chi_year_access($currentUser, $chiId, $year);
+  require_chi_year_access($user, $chiId, $year);
 
-  $stmt = $pdo->prepare('INSERT INTO activities (chi_id, year, title, description, created_by) VALUES (?, ?, ?, ?, ?)');
-  $stmt->execute([$chiId, $year, $title, $description, $currentUser['id']]);
-
-  json_response(['success' => true, 'id' => (int)$pdo->lastInsertId()]);
-}
-
-if ($_SERVER['REQUEST_METHOD'] === 'PUT') {
-  $currentUser = require_auth();
-  $id = (int)($_GET['id'] ?? 0);
-  if ($id <= 0) json_error('Thiếu id hoạt động cần cập nhật.');
-
-  $existing = get_activity_scope($pdo, $id);
-  if ($existing === null) json_error('Không tìm thấy hoạt động.', 404);
-  $existingChiId = $existing['chi_id'] !== null ? (int)$existing['chi_id'] : null;
-  // Kiểm tra quyền trên năm HIỆN TẠI của bản ghi (không được đụng vào năm không phụ trách)
-  require_chi_year_access($currentUser, $existingChiId, (int)$existing['year']);
-
-  $body = read_json_body();
-  $year = (int)($body['year'] ?? 0);
-  $title = trim($body['title'] ?? '');
-  $description = trim($body['description'] ?? '');
-
-  if ($year <= 0 || $title === '') {
-    json_error('Vui lòng nhập năm và tiêu đề hoạt động.');
-  }
-  // Nếu đổi sang năm khác, năm MỚI cũng phải nằm trong phạm vi phụ trách
-  if ($year !== (int)$existing['year']) {
-    require_chi_year_access($currentUser, $existingChiId, $year);
+  try {
+    $stmt = $pdo->prepare(
+      'INSERT INTO activities (tenant_id, chi_id, year, title, description, created_by)
+       VALUES (?, ?, ?, ?, ?, ?)'
+    );
+    $stmt->execute([$tenantId, $chiId, $year, $title, $description, $user['id']]);
+    $newId = (int)$pdo->lastInsertId();
+  } catch (PDOException $e) {
+    $stmt = $pdo->prepare(
+      'INSERT INTO activities (chi_id, year, title, description, created_by) VALUES (?, ?, ?, ?, ?)'
+    );
+    $stmt->execute([$chiId, $year, $title, $description, $user['id']]);
+    $newId = (int)$pdo->lastInsertId();
   }
 
-  $stmt = $pdo->prepare('UPDATE activities SET year = ?, title = ?, description = ? WHERE id = ?');
-  $stmt->execute([$year, $title, $description, $id]);
-
-  json_response(['success' => true]);
+  json_response(['success' => true, 'id' => $newId], 201);
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'DELETE') {
-  $currentUser = require_auth();
+  $user = require_auth();
   $id = (int)($_GET['id'] ?? 0);
-  if ($id <= 0) json_error('Thiếu id hoạt động cần xóa.');
+  if ($id <= 0) json_error('Thiếu id hoạt động.', 400);
 
-  $existing = get_activity_scope($pdo, $id);
-  if ($existing === null) json_error('Không tìm thấy hoạt động.', 404);
-  require_chi_year_access($currentUser, $existing['chi_id'] !== null ? (int)$existing['chi_id'] : null, (int)$existing['year']);
+  try {
+    $stmt = $pdo->prepare('SELECT * FROM activities WHERE tenant_id = ? AND id = ?');
+    $stmt->execute([$tenantId, $id]);
+    $activity = $stmt->fetch();
+  } catch (PDOException $e) {
+    $stmt = $pdo->prepare('SELECT * FROM activities WHERE id = ?');
+    $stmt->execute([$id]);
+    $activity = $stmt->fetch();
+  }
 
-  $stmt = $pdo->prepare('DELETE FROM activities WHERE id = ?');
-  $stmt->execute([$id]);
+  if (!$activity) json_error('Không tìm thấy hoạt động.', 404);
+
+  require_chi_year_access($user, $activity['chi_id'] !== null ? (int)$activity['chi_id'] : null, (int)$activity['year']);
+
+  try {
+    $stmt = $pdo->prepare('DELETE FROM activities WHERE tenant_id = ? AND id = ?');
+    $stmt->execute([$tenantId, $id]);
+  } catch (PDOException $e) {
+    $stmt = $pdo->prepare('DELETE FROM activities WHERE id = ?');
+    $stmt->execute([$id]);
+  }
 
   json_response(['success' => true]);
 }

@@ -6,9 +6,11 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
   json_error('Method not allowed', 405);
 }
 
-require_auth(); // Chỉ admin đã đăng nhập mới được tải file lên
+require_auth(); // Chỉ người dùng đã đăng nhập mới được tải file lên
 
 const MAX_UPLOAD_BYTES = 10 * 1024 * 1024; // 10MB
+const ALLOWED_EXTENSIONS = ['jpg', 'jpeg', 'png', 'webp', 'gif'];
+const ALLOWED_MIMES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
 
 const TYPE_FOLDERS = [
   'avatar'  => 'hinh_dai_dien',
@@ -39,23 +41,36 @@ if ($file['size'] > MAX_UPLOAD_BYTES) {
   json_error('File vượt quá dung lượng tối đa 10MB!', 413);
 }
 
+// 1. Kiểm tra Extension nghiêm ngặt
+$ext = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION));
+if (!in_array($ext, ALLOWED_EXTENSIONS, true)) {
+  json_error('Định dạng tệp không được hỗ trợ. Chỉ chấp nhận JPG, PNG, WEBP, GIF!', 400);
+}
+
+// 2. Kiểm tra MIME type thực tế
 $finfo = finfo_open(FILEINFO_MIME_TYPE);
 $mimeType = finfo_file($finfo, $file['tmp_name']);
 finfo_close($finfo);
 
-if (strpos($mimeType, 'image/') !== 0) {
-  json_error('Chỉ cho phép tải lên định dạng hình ảnh!', 400);
+if (!in_array($mimeType, ALLOWED_MIMES, true)) {
+  json_error('Chỉ cho phép tải lên hình ảnh hợp lệ (JPG, PNG, WEBP, GIF)!', 400);
 }
 
+// 3. Kiểm tra tính toàn vẹn cấu trúc ảnh (Chặn file giả dạng ảnh)
+$imgInfo = @getimagesize($file['tmp_name']);
+if ($imgInfo === false) {
+  json_error('Tệp tải lên bị lỗi hoặc không phải hình ảnh thực sự!', 400);
+}
+
+$tenantId = get_current_tenant_id();
 $type = $_GET['type'] ?? '';
 $folder = TYPE_FOLDERS[$type] ?? TYPE_FOLDERS['avatar'];
-$targetDir = STORAGE_DIR . '/' . $folder;
+$targetDir = STORAGE_DIR . '/tenants/' . $tenantId . '/' . $folder;
 
 if (!is_dir($targetDir)) {
   mkdir($targetDir, 0755, true);
 }
 
-$ext = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION));
 $safeExt = preg_replace('/[^a-z0-9]/', '', $ext) ?: 'jpg';
 $filename = time() . '-' . bin2hex(random_bytes(6)) . '.' . $safeExt;
 $targetPath = $targetDir . '/' . $filename;
@@ -64,11 +79,10 @@ if (!move_uploaded_file($file['tmp_name'], $targetPath)) {
   json_error('Không thể lưu file trên server.', 500);
 }
 
-// Xây URL tuyệt đối từ chính request hiện tại, tránh phải hard-code domain cho từng môi trường
 $scheme = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
 $host = $_SERVER['HTTP_HOST'];
-$apiDir = rtrim(dirname($_SERVER['SCRIPT_NAME']), '/'); // ví dụ: /api
-$absoluteUrl = "$scheme://$host$apiDir/storage/$folder/$filename";
+$apiDir = rtrim(dirname($_SERVER['SCRIPT_NAME']), '/');
+$absoluteUrl = "$scheme://$host$apiDir/storage/tenants/$tenantId/$folder/$filename";
 
 json_response([
   'success' => true,

@@ -4,14 +4,32 @@ require_once __DIR__ . '/db.php';
 
 function send_cors_headers(): void {
   $origin = $_SERVER['HTTP_ORIGIN'] ?? '';
-  if (in_array($origin, ALLOWED_ORIGINS, true)) {
+  $allowed = false;
+
+  if ($origin !== '') {
+    $parsed = parse_url($origin);
+    $host = strtolower($parsed['host'] ?? '');
+
+    if ($host === 'localhost' || $host === '127.0.0.1' || $host === 'giatoc.online' || str_ends_with($host, '.giatoc.online') || in_array($origin, ALLOWED_ORIGINS, true)) {
+      $allowed = true;
+    } else {
+      // Cho phép nếu là custom domain đã đăng ký trong bảng tenants
+      try {
+        $pdo = get_db();
+        $stmt = $pdo->prepare('SELECT id FROM tenants WHERE custom_domain = ?');
+        $stmt->execute([$host]);
+        if ($stmt->fetch()) {
+          $allowed = true;
+        }
+      } catch (Exception $e) {}
+    }
+  }
+
+  if ($allowed && $origin !== '') {
     header('Access-Control-Allow-Origin: ' . $origin);
   }
   header('Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS');
-  // X-Viewer-Token: phiên xác thực con cháu. Thiếu tên header này ở đây thì trình duyệt sẽ
-  // CHẶN NGAY ở bước preflight (lỗi "Failed to fetch"), dù phía PHP đã xử lý đúng — gọi bằng
-  // curl vẫn chạy được vì curl không thực hiện preflight, nên rất dễ bỏ sót.
-  header('Access-Control-Allow-Headers: Content-Type, Authorization, X-Viewer-Token');
+  header('Access-Control-Allow-Headers: Content-Type, Authorization, X-Viewer-Token, X-Tenant-Slug, X-Tenant-Id');
   header('Vary: Origin');
 
   if (($_SERVER['REQUEST_METHOD'] ?? '') === 'OPTIONS') {
@@ -37,8 +55,6 @@ function read_json_body(): array {
   return is_array($data) ? $data : [];
 }
 
-// Một số cấu hình Apache/mod_php không đưa header Authorization vào $_SERVER — thử thêm
-// getallheaders() làm phương án dự phòng để hoạt động ổn định trên cả local lẫn hosting thật.
 function get_authorization_header(): string {
   if (!empty($_SERVER['HTTP_AUTHORIZATION'])) {
     return $_SERVER['HTTP_AUTHORIZATION'];
@@ -57,28 +73,154 @@ function get_authorization_header(): string {
   return '';
 }
 
-// Trả về thông tin đầy đủ người dùng (id, username, full_name, role, chi_id, year_assigned)
-// nếu token hợp lệ, ngược lại trả về null.
-function get_authenticated_user(): ?array {
+// ---------------------------------------------------------------------------
+// Phân giải Tenant (Multi-Tenancy Resolution)
+// ---------------------------------------------------------------------------
+
+function get_current_tenant(?PDO $pdo = null): array {
+  static $cachedTenant = null;
+  if ($cachedTenant !== null) {
+    return $cachedTenant;
+  }
+  if ($pdo === null) {
+    $pdo = get_db();
+  }
+
+  // 1. Kiểm tra Explicit Headers hoặc Query Params (dành cho API / Dev / Proxy)
+  $headerSlug = $_SERVER['HTTP_X_TENANT_SLUG'] ?? '';
+  $headerId = isset($_SERVER['HTTP_X_TENANT_ID']) ? (int)$_SERVER['HTTP_X_TENANT_ID'] : 0;
+  $querySlug = $_GET['tenant'] ?? '';
+
+  if ($headerId > 0) {
+    try {
+      $stmt = $pdo->prepare('SELECT * FROM tenants WHERE id = ?');
+      $stmt->execute([$headerId]);
+      $row = $stmt->fetch();
+      if ($row) {
+        $cachedTenant = $row;
+        return $cachedTenant;
+      }
+    } catch (PDOException $e) {}
+  }
+
+  $slugToFind = $headerSlug ?: $querySlug;
+  if ($slugToFind !== '') {
+    try {
+      $stmt = $pdo->prepare('SELECT * FROM tenants WHERE slug = ?');
+      $stmt->execute([$slugToFind]);
+      $row = $stmt->fetch();
+      if ($row) {
+        $cachedTenant = $row;
+        return $cachedTenant;
+      }
+    } catch (PDOException $e) {}
+  }
+
+  // 2. Phân tích HTTP_HOST từ Domain/Subdomain
+  $host = strtolower(trim($_SERVER['HTTP_HOST'] ?? ''));
+  $hostNoPort = preg_replace('/:\d+$/', '', $host);
+
+  if ($hostNoPort !== '' && !in_array($hostNoPort, ['localhost', '127.0.0.1', 'giatoc.online', 'www.giatoc.online'], true)) {
+    // Subdomain dạng [slug].giatoc.online
+    if (preg_match('/^([a-z0-9\-]+)\.giatoc\.online$/i', $hostNoPort, $m)) {
+      $subdomain = $m[1];
+      if ($subdomain !== 'www') {
+        try {
+          $stmt = $pdo->prepare('SELECT * FROM tenants WHERE slug = ?');
+          $stmt->execute([$subdomain]);
+          $row = $stmt->fetch();
+          if ($row) {
+            $cachedTenant = $row;
+            return $cachedTenant;
+          }
+        } catch (PDOException $e) {}
+      }
+    } else {
+      // Tên miền riêng (Custom Domain, ví dụ hotrandinh.com)
+      try {
+        $stmt = $pdo->prepare('SELECT * FROM tenants WHERE custom_domain = ? OR custom_domain = ?');
+        $stmt->execute([$hostNoPort, 'www.' . $hostNoPort]);
+        $row = $stmt->fetch();
+        if ($row) {
+          $cachedTenant = $row;
+          return $cachedTenant;
+        }
+      } catch (PDOException $e) {}
+    }
+  }
+
+  // 3. Fallback mặc định: tenant ID = 1 (Trần Đình)
+  try {
+    $stmt = $pdo->query('SELECT * FROM tenants WHERE id = 1');
+    $row = $stmt->fetch();
+    if ($row) {
+      $cachedTenant = $row;
+      return $cachedTenant;
+    }
+  } catch (PDOException $e) {}
+
+  $cachedTenant = [
+    'id' => 1,
+    'slug' => 'hotrandinh',
+    'custom_domain' => 'hotrandinh.com',
+    'name' => 'Dòng Họ Trần Đình',
+    'plan' => 'premium',
+    'member_limit' => 5000,
+    'storage_limit_mb' => 30720,
+    'admin_limit' => 15,
+    'status' => 'active',
+    'zns_balance' => 0,
+    'logo' => null,
+  ];
+  return $cachedTenant;
+}
+
+function get_current_tenant_id(?PDO $pdo = null): int {
+  $t = get_current_tenant($pdo);
+  return (int)($t['id'] ?? 1);
+}
+
+// ---------------------------------------------------------------------------
+// Quản lý Phiên Người dùng (Authentication)
+// ---------------------------------------------------------------------------
+
+function get_authenticated_user(?PDO $pdo = null): ?array {
   $header = get_authorization_header();
   if (!preg_match('/Bearer\s+(\S+)/i', $header, $m)) {
     return null;
   }
   $token = $m[1];
 
-  $pdo = get_db();
-  $stmt = $pdo->prepare(
-    'SELECT u.id, u.username, u.full_name, u.role, u.chi_id, u.year_assigned
-     FROM user_sessions s
-     JOIN users u ON u.id = s.user_id
-     WHERE s.token = ? AND s.expires_at > NOW()'
-  );
-  $stmt->execute([$token]);
-  $row = $stmt->fetch();
-  return $row ?: null;
+  if ($pdo === null) $pdo = get_db();
+  $tenantId = get_current_tenant_id($pdo);
+
+  try {
+    $stmt = $pdo->prepare(
+      'SELECT u.id, u.tenant_id, u.username, u.full_name, u.role, u.chi_id, u.year_assigned
+       FROM user_sessions s
+       JOIN users u ON u.id = s.user_id
+       WHERE s.token = ? AND s.tenant_id = ? AND s.expires_at > NOW()'
+    );
+    $stmt->execute([$token, $tenantId]);
+    $row = $stmt->fetch();
+    return $row ?: null;
+  } catch (PDOException $e) {
+    try {
+      $stmt = $pdo->prepare(
+        'SELECT u.id, u.username, u.full_name, u.role, u.chi_id, u.year_assigned
+         FROM user_sessions s
+         JOIN users u ON u.id = s.user_id
+         WHERE s.token = ? AND s.expires_at > NOW()'
+      );
+      $stmt->execute([$token]);
+      $row = $stmt->fetch();
+      return $row ?: null;
+    } catch (PDOException $e2) {
+      return null;
+    }
+  }
 }
 
-// Bắt buộc đã đăng nhập, trả về thông tin người dùng. Dừng request với lỗi 401 nếu chưa.
 function require_auth(): array {
   $user = get_authenticated_user();
   if ($user === null) {
@@ -88,17 +230,13 @@ function require_auth(): array {
 }
 
 // ---------------------------------------------------------------------------
-// Xác thực "con cháu trong dòng họ" (không phải tài khoản quản trị)
+// Xác thực Con cháu (Viewer Sessions)
 // ---------------------------------------------------------------------------
 
 function get_client_ip(): string {
   return substr((string)($_SERVER['REMOTE_ADDR'] ?? 'unknown'), 0, 45);
 }
 
-// Chuẩn hoá tên tiếng Việt để so khớp: bỏ dấu, chuyển thường, gộp khoảng trắng thừa.
-// Người nhà gõ "tran dinh trung" hay "Trần  Đình Trung" đều phải khớp cùng 1 người —
-// bắt gõ đúng dấu chỉ làm khó người lớn tuổi chứ không tăng được bảo mật thực chất
-// (tên trong gia phả không phải bí mật, bí mật thật nằm ở câu hỏi ngày tế họ).
 function normalize_vn_name(string $name): string {
   $name = trim($name);
   if ($name === '') return '';
@@ -106,7 +244,6 @@ function normalize_vn_name(string $name): string {
     $tr = Transliterator::create('Any-Latin; Latin-ASCII; Lower');
     if ($tr) $name = $tr->transliterate($name);
   } else {
-    // Hosting không bật intl: bỏ dấu thủ công theo bảng chữ cái tiếng Việt.
     $map = [
       'a' => 'áàảãạăắằẳẵặâấầẩẫậ', 'e' => 'éèẻẽẹêếềểễệ', 'i' => 'íìỉĩị',
       'o' => 'óòỏõọôốồổỗộơớờởỡợ', 'u' => 'úùủũụưứừửữự', 'y' => 'ýỳỷỹỵ', 'd' => 'đ',
@@ -122,66 +259,86 @@ function normalize_vn_name(string $name): string {
   return trim(preg_replace('/\s+/u', ' ', $name));
 }
 
-function get_setting(string $key, string $default = ''): string {
-  $pdo = get_db();
-  $stmt = $pdo->prepare('SELECT setting_value FROM site_settings WHERE setting_key = ?');
-  $stmt->execute([$key]);
-  $row = $stmt->fetch();
-  return $row ? (string)$row['setting_value'] : $default;
-}
-
-// Các hàm bên dưới bọc try/catch quanh truy vấn để phòng tình huống MÃ NGUỒN ĐÃ LÊN nhưng
-// migration_access_control.sql CHƯA ĐƯỢC CHẠY trên database thật (bảng chưa tồn tại). Không
-// bọc thì mỗi lời gọi sẽ ném PDOException → lỗi 500 → sập cả trang. Cách xử lý khi lỗi được
-// chọn riêng cho từng hàm, xem chú thích tại chỗ.
-function log_auth_attempt(string $kind, ?string $identifier, bool $success): void {
+function get_setting(string $key, string $default = '', ?PDO $pdo = null): string {
+  if ($pdo === null) $pdo = get_db();
+  $tenantId = get_current_tenant_id($pdo);
   try {
-    $pdo = get_db();
-    $stmt = $pdo->prepare(
-      'INSERT INTO auth_attempt_log (kind, ip, identifier, success) VALUES (?, ?, ?, ?)'
-    );
-    $stmt->execute([$kind, get_client_ip(), $identifier !== null ? mb_substr($identifier, 0, 150) : null, $success ? 1 : 0]);
+    $stmt = $pdo->prepare('SELECT setting_value FROM site_settings WHERE tenant_id = ? AND setting_key = ?');
+    $stmt->execute([$tenantId, $key]);
+    $row = $stmt->fetch();
+    return $row ? (string)$row['setting_value'] : $default;
   } catch (PDOException $e) {
-    // Không ghi được nhật ký thì vẫn cho phiên đăng nhập/xác thực diễn ra bình thường —
-    // mất một dòng log không đáng để chặn người dùng hợp lệ.
+    try {
+      $stmt = $pdo->prepare('SELECT setting_value FROM site_settings WHERE setting_key = ?');
+      $stmt->execute([$key]);
+      $row = $stmt->fetch();
+      return $row ? (string)$row['setting_value'] : $default;
+    } catch (PDOException $e2) {
+      return $default;
+    }
   }
 }
 
-// Đếm số lần THẤT BẠI gần đây — dùng để khoá tạm khi có dấu hiệu dò mật khẩu.
-// Đếm riêng theo IP và theo tài khoản: chỉ đếm theo IP thì kẻ tấn công đổi IP là thoát,
-// chỉ đếm theo tài khoản thì lại vô tình cho phép quét hàng loạt tài khoản khác nhau.
-function count_recent_auth_failures(string $kind, ?string $identifier, int $minutes): int {
-  $pdo = get_db();
-  // $minutes được ép kiểu int và nội suy thẳng: MySQL không nhận tham số bind ở vị trí
-  // INTERVAL khi PDO dùng prepared statement thật (chỉ "chạy được" nhờ chế độ giả lập mặc
-  // định). Giá trị này luôn do code truyền vào, không bao giờ đến từ người dùng.
-  $minutes = max(1, $minutes);
+function log_auth_attempt(string $kind, ?string $identifier, bool $success, ?PDO $pdo = null): void {
   try {
-  if ($identifier === null) {
+    if ($pdo === null) $pdo = get_db();
+    $tenantId = get_current_tenant_id($pdo);
     $stmt = $pdo->prepare(
-      "SELECT COUNT(*) AS c FROM auth_attempt_log
-       WHERE kind = ? AND ip = ? AND success = 0 AND attempted_at > (NOW() - INTERVAL $minutes MINUTE)"
+      'INSERT INTO auth_attempt_log (tenant_id, kind, ip, identifier, success) VALUES (?, ?, ?, ?, ?)'
     );
-    $stmt->execute([$kind, get_client_ip()]);
-  } else {
-    $stmt = $pdo->prepare(
-      "SELECT COUNT(*) AS c FROM auth_attempt_log
-       WHERE kind = ? AND identifier = ? AND success = 0 AND attempted_at > (NOW() - INTERVAL $minutes MINUTE)"
-    );
-    $stmt->execute([$kind, mb_substr($identifier, 0, 150)]);
-  }
-  return (int)$stmt->fetch()['c'];
+    $stmt->execute([$tenantId, $kind, get_client_ip(), $identifier !== null ? mb_substr($identifier, 0, 150) : null, $success ? 1 : 0]);
   } catch (PDOException $e) {
-    // Chưa đếm được thì coi như chưa có lần sai nào: thà tạm thời mất lớp chống dò mật khẩu
-    // còn hơn khoá nhầm toàn bộ người dùng hợp lệ ra khỏi hệ thống.
-    return 0;
+    try {
+      $stmt = $pdo->prepare(
+        'INSERT INTO auth_attempt_log (kind, ip, identifier, success) VALUES (?, ?, ?, ?)'
+      );
+      $stmt->execute([$kind, get_client_ip(), $identifier !== null ? mb_substr($identifier, 0, 150) : null, $success ? 1 : 0]);
+    } catch (PDOException $e2) {}
   }
 }
 
-// Phiên xác thực con cháu, gửi qua header riêng X-Viewer-Token (không dùng chung
-// Authorization: Bearer với tài khoản quản trị, để không bao giờ có chuyện nhầm lẫn
-// giữa "người chỉ được xem" và "tài khoản có quyền ghi").
-function get_viewer_session(): ?array {
+function count_recent_auth_failures(string $kind, ?string $identifier, int $minutes, ?PDO $pdo = null): int {
+  if ($pdo === null) $pdo = get_db();
+  $tenantId = get_current_tenant_id($pdo);
+  $minutes = max(1, (int)$minutes);
+  try {
+    if ($identifier === null) {
+      $stmt = $pdo->prepare(
+        "SELECT COUNT(*) AS c FROM auth_attempt_log
+         WHERE tenant_id = ? AND kind = ? AND ip = ? AND success = 0 AND attempted_at > (NOW() - INTERVAL $minutes MINUTE)"
+      );
+      $stmt->execute([$tenantId, $kind, get_client_ip()]);
+    } else {
+      $stmt = $pdo->prepare(
+        "SELECT COUNT(*) AS c FROM auth_attempt_log
+         WHERE tenant_id = ? AND kind = ? AND identifier = ? AND success = 0 AND attempted_at > (NOW() - INTERVAL $minutes MINUTE)"
+      );
+      $stmt->execute([$tenantId, $kind, mb_substr($identifier, 0, 150)]);
+    }
+    return (int)$stmt->fetch()['c'];
+  } catch (PDOException $e) {
+    try {
+      if ($identifier === null) {
+        $stmt = $pdo->prepare(
+          "SELECT COUNT(*) AS c FROM auth_attempt_log
+           WHERE kind = ? AND ip = ? AND success = 0 AND attempted_at > (NOW() - INTERVAL $minutes MINUTE)"
+        );
+        $stmt->execute([$kind, get_client_ip()]);
+      } else {
+        $stmt = $pdo->prepare(
+          "SELECT COUNT(*) AS c FROM auth_attempt_log
+           WHERE kind = ? AND identifier = ? AND success = 0 AND attempted_at > (NOW() - INTERVAL $minutes MINUTE)"
+        );
+        $stmt->execute([$kind, mb_substr($identifier, 0, 150)]);
+      }
+      return (int)$stmt->fetch()['c'];
+    } catch (PDOException $e2) {
+      return 0;
+    }
+  }
+}
+
+function get_viewer_session(?PDO $pdo = null): ?array {
   $token = '';
   if (!empty($_SERVER['HTTP_X_VIEWER_TOKEN'])) {
     $token = $_SERVER['HTTP_X_VIEWER_TOKEN'];
@@ -192,26 +349,28 @@ function get_viewer_session(): ?array {
   }
   if ($token === '') return null;
 
+  if ($pdo === null) $pdo = get_db();
+  $tenantId = get_current_tenant_id($pdo);
+
   try {
-    $pdo = get_db();
     $stmt = $pdo->prepare(
-      'SELECT member_id, member_name FROM viewer_sessions WHERE token = ? AND expires_at > NOW()'
+      'SELECT member_id, member_name FROM viewer_sessions WHERE token = ? AND tenant_id = ? AND expires_at > NOW()'
     );
-    $stmt->execute([$token]);
+    $stmt->execute([$token, $tenantId]);
     $row = $stmt->fetch();
     return $row ?: null;
   } catch (PDOException $e) {
-    // Không kiểm chứng được phiên thì coi như CHƯA xác thực (khoá lại), không bao giờ mở
-    // dữ liệu dòng họ chỉ vì truy vấn lỗi — ngược với 2 hàm nhật ký ở trên, ở đây an toàn
-    // phải được ưu tiên hơn tiện dụng.
-    return null;
+    try {
+      $stmt = $pdo->prepare('SELECT member_id, member_name FROM viewer_sessions WHERE token = ? AND expires_at > NOW()');
+      $stmt->execute([$token]);
+      $row = $stmt->fetch();
+      return $row ?: null;
+    } catch (PDOException $e2) {
+      return null;
+    }
   }
 }
 
-// Cổng chung cho MỌI dữ liệu nhạy cảm của dòng họ (gia phả, thông tin cá nhân, tài sản,
-// thu chi, lăng mộ, các chi): cho qua nếu là tài khoản quản trị đã đăng nhập HOẶC là con
-// cháu đã xác thực. Ngược lại 401 để giao diện biết mà hiện màn hình xác thực.
-// Trả về ['kind' => 'user'|'viewer', ...] cho nơi gọi cần phân biệt.
 function require_family_access(): array {
   $user = get_authenticated_user();
   if ($user !== null) {
@@ -224,7 +383,6 @@ function require_family_access(): array {
   json_error('Nội dung này chỉ dành cho con cháu trong dòng họ. Vui lòng xác thực để xem.', 401);
 }
 
-// Bắt buộc người dùng có 1 trong các role cho phép. Dừng request với lỗi 403 nếu không đủ quyền.
 function require_role(array $allowedRoles): array {
   $user = require_auth();
   if (!in_array($user['role'], $allowedRoles, true)) {
@@ -233,8 +391,6 @@ function require_role(array $allowedRoles): array {
   return $user;
 }
 
-// Kiểm tra người dùng có quyền thao tác trên 1 chi cụ thể hay không:
-// admin luôn được phép; các role còn lại chỉ được phép trên đúng chi_id của mình.
 function require_chi_access(array $user, ?int $chiId): void {
   if ($user['role'] === 'admin') {
     return;
@@ -244,9 +400,6 @@ function require_chi_access(array $user, ?int $chiId): void {
   }
 }
 
-// Giống require_chi_access, nhưng với tài khoản bãi biện còn kiểm tra thêm: chỉ được
-// ghi dữ liệu của đúng năm mình đang được phân công phụ trách (bảng bai_bien_assignments,
-// status='active'). admin/chi_admin/dich_ton không bị giới hạn theo năm.
 function require_chi_year_access(array $user, ?int $chiId, int $year): void {
   require_chi_access($user, $chiId);
 
@@ -255,18 +408,28 @@ function require_chi_year_access(array $user, ?int $chiId, int $year): void {
   }
 
   $pdo = get_db();
-  $stmt = $pdo->prepare(
-    "SELECT id FROM bai_bien_assignments
-     WHERE user_id = ? AND chi_id <=> ? AND year = ? AND status = 'active'"
-  );
-  $stmt->execute([$user['id'], $chiId, $year]);
-  if (!$stmt->fetch()) {
-    json_error('Bạn chỉ được ghi dữ liệu của năm mình đang được phân công phụ trách (bãi biện).', 403);
+  $tenantId = get_current_tenant_id($pdo);
+  try {
+    $stmt = $pdo->prepare(
+      "SELECT id FROM bai_bien_assignments
+       WHERE tenant_id = ? AND user_id = ? AND chi_id <=> ? AND year = ? AND status = 'active'"
+    );
+    $stmt->execute([$tenantId, $user['id'], $chiId, $year]);
+    if (!$stmt->fetch()) {
+      json_error('Bạn chỉ được ghi dữ liệu của năm mình đang được phân công phụ trách (bãi biện).', 403);
+    }
+  } catch (PDOException $e) {
+    $stmt = $pdo->prepare(
+      "SELECT id FROM bai_bien_assignments
+       WHERE user_id = ? AND chi_id <=> ? AND year = ? AND status = 'active'"
+    );
+    $stmt->execute([$user['id'], $chiId, $year]);
+    if (!$stmt->fetch()) {
+      json_error('Bạn chỉ được ghi dữ liệu của năm mình đang được phân công phụ trách (bãi biện).', 403);
+    }
   }
 }
 
-// Tìm 1 node trong cây gia phả (JSON) theo id — dùng chung cho chi.php, tombs.php,
-// reveal_phone.php (mọi nơi cần tra cứu 1 người theo id trong familyData).
 function find_family_node($node, string $id) {
   if (!is_array($node)) return null;
   if (($node['id'] ?? null) === $id) return $node;
@@ -278,14 +441,20 @@ function find_family_node($node, string $id) {
 }
 
 function get_family_tree(PDO $pdo) {
-  $stmt = $pdo->prepare('SELECT data_json FROM app_data WHERE data_key = ?');
-  $stmt->execute(['familyData']);
-  $row = $stmt->fetch();
-  return $row ? json_decode($row['data_json'], true) : null;
+  $tenantId = get_current_tenant_id($pdo);
+  try {
+    $stmt = $pdo->prepare('SELECT data_json FROM app_data WHERE tenant_id = ? AND data_key = ?');
+    $stmt->execute([$tenantId, 'familyData']);
+    $row = $stmt->fetch();
+    return $row ? json_decode($row['data_json'], true) : null;
+  } catch (PDOException $e) {
+    $stmt = $pdo->prepare('SELECT data_json FROM app_data WHERE data_key = ?');
+    $stmt->execute(['familyData']);
+    $row = $stmt->fetch();
+    return $row ? json_decode($row['data_json'], true) : null;
+  }
 }
 
-// Che số điện thoại: giữ đầu (+mã quốc gia hoặc "0x") và 2-3 số cuối, phần giữa thay bằng
-// dấu chấm tròn. VD: "0987654321" -> "09•••••321", "+84987654321" -> "+84•••••••21".
 function mask_phone(string $phone): string {
   $phone = trim($phone);
   $len = mb_strlen($phone);
@@ -295,7 +464,7 @@ function mask_phone(string $phone): string {
   $prefixLen = $isIntl ? 3 : 2;
   $suffixLen = $isIntl ? 2 : 3;
 
-  if ($len <= $prefixLen + $suffixLen) return $phone; // số quá ngắn, không đủ để che có ý nghĩa
+  if ($len <= $prefixLen + $suffixLen) return $phone;
 
   $prefix = mb_substr($phone, 0, $prefixLen);
   $suffix = mb_substr($phone, -$suffixLen);
@@ -303,9 +472,6 @@ function mask_phone(string $phone): string {
   return $prefix . str_repeat('•', $maskLen) . $suffix;
 }
 
-// Che số điện thoại VÀ Zalo (Zalo cũng là số điện thoại, cùng mức nhạy cảm) của TOÀN BỘ
-// cây gia phả (đệ quy qua children), dùng cho response trả về người dùng chưa đăng nhập —
-// không sửa gì khác ngoài 2 field "phone" và "zalo".
 function mask_family_contacts(array &$node): void {
   if (!empty($node['phone']) && is_string($node['phone'])) {
     $node['phone'] = mask_phone($node['phone']);

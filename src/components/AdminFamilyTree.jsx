@@ -441,54 +441,104 @@ const AdminFamilyTree = () => {
           return alert("File Excel trống!");
         }
 
-        // Tái tạo lại cấu trúc cây từ Flat JSON
+        // Tái tạo lại cấu trúc cây từ Flat JSON kèm kiểm tra chu trình (Cycle Check)
         const buildTree = (dataList) => {
-          // Chuẩn hóa dữ liệu
-          const normalizedList = dataList.map(row => ({
-            id: row["ID"] ? row["ID"].toString() : 'gen_' + Date.now() + Math.random(),
-            parentId: row["ParentID (Mã Cha)"] ? row["ParentID (Mã Cha)"].toString() : "",
-            name: row["Họ Tên"] || "Không tên",
-            generation: parseInt(row["Đời"]) || 1,
-            gender: row["Giới Tính (Nam/Nữ)"] === "Nữ" ? "Nữ" : (row["Giới Tính (Nam/Nữ)"] === "Nam" ? "Nam" : ""),
-            isAlive: row["Tình Trạng (Sống/Mất)"] === "Sống",
-            isMainLineage: row["Đích Tôn (Có/Không)"] === "Có",
-            isRegistered: row["Đã Đăng Ký Suất Đinh (Có/Không)"] === "Có",
-            birthDate: row["Ngày Sinh (YYYY-MM-DD)"] || row["Năm Sinh"] || "",
-            deathDate: row["Ngày Mất (YYYY-MM-DD)"] || row["Năm Mất"] || "",
-            spouses: row["Vợ/Chồng"]
-              ? row["Vợ/Chồng"].toString().split(';').map(s => s.trim()).filter(s => s !== '').map((name, idx) => ({ name, order: idx + 1 }))
-              : [],
-            education: row["Học Vấn"] || "Chưa rõ",
-            occupation: row["Nghề Nghiệp"] || "",
-            currentProvince: row["Tỉnh/Thành Hiện Nay"] || row["Nơi Ở"] || "",
-            currentWard: row["Phường/Xã Hiện Nay"] || "",
-            oldAddress: row["Địa Chỉ Cũ"] || "",
-            phone: row["Số Điện Thoại"] ? row["Số Điện Thoại"].toString() : "",
-            zalo: row["Zalo"] ? row["Zalo"].toString() : "",
-            description: row["Tiểu Sử"] || "",
-            achievements: row["Thành Tựu (cách nhau bởi ;)"] ? row["Thành Tựu (cách nhau bởi ;)"].split(';').map(s => s.trim()) : [],
-            avatar: row["Hình Đại Diện (Link)"] || "",
-            children: []
-          }));
+          const idMap = new Map();
+          const duplicateIds = new Set();
 
-          const idMapping = normalizedList.reduce((acc, el, i) => {
-            acc[el.id] = i;
-            return acc;
-          }, {});
+          const normalizedList = dataList.map((row, index) => {
+            const rawId = row["ID"] ? row["ID"].toString().trim() : '';
+            const id = rawId || ('gen_' + Date.now() + '_' + index);
+            const parentId = row["ParentID (Mã Cha)"] ? row["ParentID (Mã Cha)"].toString().trim() : "";
 
-          let root = null;
+            if (idMap.has(id)) {
+              duplicateIds.add(id);
+            } else {
+              idMap.set(id, index);
+            }
+
+            return {
+              rowIndex: index + 2,
+              id,
+              parentId,
+              name: row["Họ Tên"] || "Không tên",
+              generation: parseInt(row["Đời"]) || 1,
+              gender: row["Giới Tính (Nam/Nữ)"] === "Nữ" ? "Nữ" : (row["Giới Tính (Nam/Nữ)"] === "Nam" ? "Nam" : ""),
+              isAlive: row["Tình Trạng (Sống/Mất)"] === "Sống",
+              isMainLineage: row["Đích Tôn (Có/Không)"] === "Có",
+              isRegistered: row["Đã Đăng Ký Suất Đinh (Có/Không)"] === "Có",
+              birthDate: row["Ngày Sinh (YYYY-MM-DD)"] || row["Năm Sinh"] || "",
+              deathDate: row["Ngày Mất (YYYY-MM-DD)"] || row["Năm Mất"] || "",
+              spouses: row["Vợ/Chồng"]
+                ? row["Vợ/Chồng"].toString().split(';').map(s => s.trim()).filter(s => s !== '').map((name, idx) => ({ name, order: idx + 1 }))
+                : [],
+              education: row["Học Vấn"] || "Chưa rõ",
+              occupation: row["Nghề Nghiệp"] || "",
+              currentProvince: row["Tỉnh/Thành Hiện Nay"] || row["Nơi Ở"] || "",
+              currentWard: row["Phường/Xã Hiện Nay"] || "",
+              oldAddress: row["Địa Chỉ Cũ"] || "",
+              phone: row["Số Điện Thoại"] ? row["Số Điện Thoại"].toString() : "",
+              zalo: row["Zalo"] ? row["Zalo"].toString() : "",
+              description: row["Tiểu Sử"] || "",
+              achievements: row["Thành Tựu (cách nhau bởi ;)"] ? row["Thành Tựu (cách nhau bởi ;)"].split(';').map(s => s.trim()) : [],
+              avatar: row["Hình Đại Diện (Link)"] || "",
+              children: []
+            };
+          });
+
+          if (duplicateIds.size > 0) {
+            alert("Lỗi: Phát hiện trùng mã ID trong file Excel: " + Array.from(duplicateIds).join(', '));
+            return null;
+          }
+
+          // Kiểm tra tính hợp lệ & chu trình (Cycle Detection / DAG check)
+          for (const item of normalizedList) {
+            if (!item.parentId) continue;
+
+            if (item.parentId === item.id) {
+              alert(`Lỗi tại dòng ${item.rowIndex} (${item.name}): Mã cha không được trùng với mã bản thân (${item.id})!`);
+              return null;
+            }
+
+            if (!idMap.has(item.parentId)) {
+              alert(`Lỗi tại dòng ${item.rowIndex} (${item.name}): Không tìm thấy người có mã cha '${item.parentId}' trong file Excel!`);
+              return null;
+            }
+
+            const visited = new Set([item.id]);
+            let currParentId = item.parentId;
+            while (currParentId) {
+              if (visited.has(currParentId)) {
+                alert(`Lỗi quan hệ vòng lặp cha - con liên quan đến thành viên '${item.name}' (ID: ${item.id}) và '${currParentId}'! Vui lòng chỉnh sửa lại trong Excel.`);
+                return null;
+              }
+              visited.add(currParentId);
+              const parentIdx = idMap.get(currParentId);
+              currParentId = parentIdx !== undefined ? normalizedList[parentIdx].parentId : null;
+            }
+          }
+
+          const roots = [];
           normalizedList.forEach(el => {
-            if (el.parentId === null || el.parentId === "") {
-              root = el;
+            if (!el.parentId) {
+              roots.push(el);
               return;
             }
-            const parentEl = normalizedList[idMapping[el.parentId]];
-            if (parentEl) {
-              parentEl.children = [...(parentEl.children || []), el];
+            const parentIdx = idMap.get(el.parentId);
+            if (parentIdx !== undefined) {
+              normalizedList[parentIdx].children.push(el);
             }
           });
 
-          return root || normalizedList[0];
+          if (roots.length === 0) {
+            alert("Lỗi: Không tìm thấy cụ tổ gốc (người có cột ParentID để trống)!");
+            return null;
+          }
+          if (roots.length > 1) {
+            alert(`Cảnh báo: Có ${roots.length} người cùng để trống ParentID (${roots.map(r => r.name).join(', ')}). Hệ thống sẽ lấy '${roots[0].name}' làm gốc.`);
+          }
+
+          return roots[0];
         };
 
         const newTree = buildTree(json);

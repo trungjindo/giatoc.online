@@ -2,140 +2,156 @@
 require_once __DIR__ . '/helpers.php';
 send_cors_headers();
 
+$user = require_role(['admin']);
 $pdo = get_db();
-$VALID_ROLES = ['admin', 'chi_admin', 'dich_ton', 'bai_bien'];
+$tenantId = get_current_tenant_id($pdo);
 
 if ($_SERVER['REQUEST_METHOD'] === 'GET') {
-  // admin xem toàn bộ tài khoản; chi_admin/dich_ton chỉ xem được tài khoản trong đúng chi mình
-  // (cần thiết để chọn người phân công bãi biện); bai_bien không được xem danh sách này.
-  $currentUser = require_role(['admin', 'chi_admin', 'dich_ton']);
-
-  if ($currentUser['role'] === 'admin') {
-    $stmt = $pdo->query(
-      'SELECT u.id, u.username, u.full_name, u.role, u.chi_id, u.year_assigned, c.name AS chi_name
-       FROM users u
-       LEFT JOIN chi c ON c.id = u.chi_id
-       ORDER BY u.role, u.full_name'
-    );
-  } else {
+  try {
     $stmt = $pdo->prepare(
-      'SELECT u.id, u.username, u.full_name, u.role, u.chi_id, u.year_assigned, c.name AS chi_name
+      'SELECT u.id, u.username, u.full_name, u.role, u.chi_id, u.year_assigned, u.created_at, c.name AS chi_name
+       FROM users u
+       LEFT JOIN chi c ON c.id = u.chi_id AND c.tenant_id = u.tenant_id
+       WHERE u.tenant_id = ?
+       ORDER BY u.id ASC'
+    );
+    $stmt->execute([$tenantId]);
+    $rows = $stmt->fetchAll();
+  } catch (PDOException $e) {
+    $stmt = $pdo->query(
+      'SELECT u.id, u.username, u.full_name, u.role, u.chi_id, u.year_assigned, u.created_at, c.name AS chi_name
        FROM users u
        LEFT JOIN chi c ON c.id = u.chi_id
-       WHERE u.chi_id = ?
-       ORDER BY u.role, u.full_name'
+       ORDER BY u.id ASC'
     );
-    $stmt->execute([(int)$currentUser['chi_id']]);
+    $rows = $stmt->fetchAll();
   }
-  $rows = $stmt->fetchAll();
-  $result = array_map(function ($row) {
+
+  $users = array_map(function ($r) {
     return [
-      'id' => (int)$row['id'],
-      'username' => $row['username'],
-      'fullName' => $row['full_name'],
-      'role' => $row['role'],
-      'chiId' => $row['chi_id'] !== null ? (int)$row['chi_id'] : null,
-      'chiName' => $row['chi_name'],
-      'yearAssigned' => $row['year_assigned'] !== null ? (int)$row['year_assigned'] : null,
+      'id' => (int)$r['id'],
+      'username' => $r['username'],
+      'fullName' => $r['full_name'],
+      'role' => $r['role'],
+      'chiId' => $r['chi_id'] !== null ? (int)$r['chi_id'] : null,
+      'chiName' => $r['chi_name'] ?? null,
+      'yearAssigned' => $r['year_assigned'] !== null ? (int)$r['year_assigned'] : null,
+      'createdAt' => $r['created_at'],
     ];
   }, $rows);
-  json_response($result);
+
+  json_response($users);
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-  require_role(['admin']);
   $body = read_json_body();
   $username = trim($body['username'] ?? '');
-  $password = (string)($body['password'] ?? '');
+  $password = $body['password'] ?? '';
   $fullName = trim($body['fullName'] ?? '');
-  $role = $body['role'] ?? '';
-  $chiId = isset($body['chiId']) && $body['chiId'] !== '' ? (int)$body['chiId'] : null;
-  $yearAssigned = isset($body['yearAssigned']) && $body['yearAssigned'] !== '' ? (int)$body['yearAssigned'] : null;
+  $role = $body['role'] ?? 'chi_admin';
+  $chiId = !empty($body['chiId']) ? (int)$body['chiId'] : null;
+  $yearAssigned = !empty($body['yearAssigned']) ? (int)$body['yearAssigned'] : null;
 
-  if ($username === '' || $password === '' || $fullName === '') {
-    json_error('Vui lòng nhập đủ tên đăng nhập, mật khẩu và họ tên.');
+  if ($username === '' || $password === '') {
+    json_error('Vui lòng nhập tên đăng nhập và mật khẩu.', 400);
   }
-  if (!in_array($role, $VALID_ROLES, true)) {
-    json_error('Vai trò không hợp lệ.');
+  if (!in_array($role, ['admin', 'chi_admin', 'dich_ton', 'bai_bien'], true)) {
+    json_error('Vai trò không hợp lệ.', 400);
   }
   if ($role !== 'admin' && $chiId === null) {
-    json_error('Vui lòng chọn chi cho vai trò này.');
+    json_error('Vui lòng chọn chi cho tài khoản này.', 400);
   }
 
-  $stmt = $pdo->prepare('SELECT id FROM users WHERE username = ?');
-  $stmt->execute([$username]);
-  if ($stmt->fetch()) {
-    json_error('Tên đăng nhập đã tồn tại.');
+  try {
+    $stmt = $pdo->prepare('SELECT id FROM users WHERE tenant_id = ? AND username = ?');
+    $stmt->execute([$tenantId, $username]);
+    if ($stmt->fetch()) {
+      json_error('Tên đăng nhập đã tồn tại trong dòng họ này.', 400);
+    }
+  } catch (PDOException $e) {}
+
+  $hash = password_hash($password, PASSWORD_BCRYPT, ['cost' => 10]);
+
+  try {
+    $stmt = $pdo->prepare(
+      'INSERT INTO users (tenant_id, username, password_hash, full_name, role, chi_id, year_assigned)
+       VALUES (?, ?, ?, ?, ?, ?, ?)'
+    );
+    $stmt->execute([$tenantId, $username, $hash, $fullName, $role, $chiId, $yearAssigned]);
+    $newId = (int)$pdo->lastInsertId();
+  } catch (PDOException $e) {
+    $stmt = $pdo->prepare(
+      'INSERT INTO users (username, password_hash, full_name, role, chi_id, year_assigned)
+       VALUES (?, ?, ?, ?, ?, ?)'
+    );
+    $stmt->execute([$username, $hash, $fullName, $role, $chiId, $yearAssigned]);
+    $newId = (int)$pdo->lastInsertId();
   }
 
-  $hash = password_hash($password, PASSWORD_BCRYPT);
-  $stmt = $pdo->prepare(
-    'INSERT INTO users (username, password_hash, full_name, role, chi_id, year_assigned) VALUES (?, ?, ?, ?, ?, ?)'
-  );
-  $stmt->execute([$username, $hash, $fullName, $role, $chiId, $yearAssigned]);
-
-  json_response(['success' => true, 'id' => (int)$pdo->lastInsertId()]);
+  json_response(['success' => true, 'id' => $newId], 201);
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'PUT') {
-  $currentUser = require_role(['admin']);
   $id = (int)($_GET['id'] ?? 0);
-  if ($id <= 0) json_error('Thiếu id tài khoản cần cập nhật.');
+  if ($id <= 0) json_error('Thiếu id người dùng.', 400);
 
   $body = read_json_body();
   $fullName = trim($body['fullName'] ?? '');
-  $role = $body['role'] ?? '';
-  $chiId = isset($body['chiId']) && $body['chiId'] !== '' ? (int)$body['chiId'] : null;
-  $yearAssigned = isset($body['yearAssigned']) && $body['yearAssigned'] !== '' ? (int)$body['yearAssigned'] : null;
-  $password = (string)($body['password'] ?? ''); // để trống nếu không đổi mật khẩu
+  $role = $body['role'] ?? 'chi_admin';
+  $chiId = !empty($body['chiId']) ? (int)$body['chiId'] : null;
+  $yearAssigned = !empty($body['yearAssigned']) ? (int)$body['yearAssigned'] : null;
+  $password = $body['password'] ?? '';
 
-  if ($fullName === '' || !in_array($role, $VALID_ROLES, true)) {
-    json_error('Dữ liệu không hợp lệ.');
+  if (!in_array($role, ['admin', 'chi_admin', 'dich_ton', 'bai_bien'], true)) {
+    json_error('Vai trò không hợp lệ.', 400);
   }
   if ($role !== 'admin' && $chiId === null) {
-    json_error('Vui lòng chọn chi cho vai trò này.');
-  }
-
-  // Không cho tự hạ quyền admin của chính mình để tránh tự khóa tài khoản duy nhất còn quyền quản trị
-  if ((int)$currentUser['id'] === $id && $role !== 'admin') {
-    $stmt = $pdo->query("SELECT COUNT(*) AS c FROM users WHERE role = 'admin'");
-    if ((int)$stmt->fetch()['c'] <= 1) {
-      json_error('Không thể hạ quyền tài khoản admin duy nhất còn lại.');
-    }
+    json_error('Vui lòng chọn chi cho tài khoản này.', 400);
   }
 
   if ($password !== '') {
-    $hash = password_hash($password, PASSWORD_BCRYPT);
-    $stmt = $pdo->prepare(
-      'UPDATE users SET full_name = ?, role = ?, chi_id = ?, year_assigned = ?, password_hash = ? WHERE id = ?'
-    );
-    $stmt->execute([$fullName, $role, $chiId, $yearAssigned, $hash, $id]);
-
-    // Đổi mật khẩu phải HUỶ MỌI PHIÊN CŨ của tài khoản đó. Nếu không, khi cấp lại mật khẩu
-    // vì nghi ngờ bị lộ, token mà kẻ lạ đã lấy được vẫn dùng được thêm tới 30 ngày nữa —
-    // tức là việc đổi mật khẩu không thực sự cắt được quyền truy cập.
-    $pdo->prepare('DELETE FROM user_sessions WHERE user_id = ?')->execute([$id]);
+    $hash = password_hash($password, PASSWORD_BCRYPT, ['cost' => 10]);
+    try {
+      $stmt = $pdo->prepare(
+        'UPDATE users SET password_hash = ?, full_name = ?, role = ?, chi_id = ?, year_assigned = ?
+         WHERE tenant_id = ? AND id = ?'
+      );
+      $stmt->execute([$hash, $fullName, $role, $chiId, $yearAssigned, $tenantId, $id]);
+    } catch (PDOException $e) {
+      $stmt = $pdo->prepare(
+        'UPDATE users SET password_hash = ?, full_name = ?, role = ?, chi_id = ?, year_assigned = ? WHERE id = ?'
+      );
+      $stmt->execute([$hash, $fullName, $role, $chiId, $yearAssigned, $id]);
+    }
   } else {
-    $stmt = $pdo->prepare(
-      'UPDATE users SET full_name = ?, role = ?, chi_id = ?, year_assigned = ? WHERE id = ?'
-    );
-    $stmt->execute([$fullName, $role, $chiId, $yearAssigned, $id]);
+    try {
+      $stmt = $pdo->prepare(
+        'UPDATE users SET full_name = ?, role = ?, chi_id = ?, year_assigned = ? WHERE tenant_id = ? AND id = ?'
+      );
+      $stmt->execute([$fullName, $role, $chiId, $yearAssigned, $tenantId, $id]);
+    } catch (PDOException $e) {
+      $stmt = $pdo->prepare(
+        'UPDATE users SET full_name = ?, role = ?, chi_id = ?, year_assigned = ? WHERE id = ?'
+      );
+      $stmt->execute([$fullName, $role, $chiId, $yearAssigned, $id]);
+    }
   }
 
   json_response(['success' => true]);
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'DELETE') {
-  $currentUser = require_role(['admin']);
   $id = (int)($_GET['id'] ?? 0);
-  if ($id <= 0) json_error('Thiếu id tài khoản cần xóa.');
+  if ($id <= 0) json_error('Thiếu id người dùng.', 400);
+  if ($id === (int)$user['id']) json_error('Không thể tự xóa tài khoản của chính mình.', 400);
 
-  if ((int)$currentUser['id'] === $id) {
-    json_error('Không thể tự xóa tài khoản đang đăng nhập.');
+  try {
+    $stmt = $pdo->prepare('DELETE FROM users WHERE tenant_id = ? AND id = ?');
+    $stmt->execute([$tenantId, $id]);
+  } catch (PDOException $e) {
+    $stmt = $pdo->prepare('DELETE FROM users WHERE id = ?');
+    $stmt->execute([$id]);
   }
-
-  $stmt = $pdo->prepare('DELETE FROM users WHERE id = ?');
-  $stmt->execute([$id]);
 
   json_response(['success' => true]);
 }

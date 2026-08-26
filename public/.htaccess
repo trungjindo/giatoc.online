@@ -1,16 +1,21 @@
-# React Router dùng client-side routing — mọi đường dẫn không phải file/thư mục
-# thật trên server (VD /gia-pha, /thu-vien) phải trả về index.html để React tự xử lý,
-# nếu không Apache sẽ trả 404 khi người dùng vào thẳng URL hoặc bấm F5.
+# React Router dùng client-side routing
 <IfModule mod_rewrite.c>
   RewriteEngine On
   RewriteBase /
 
-  # Ảnh tải lên được lưu ngoài public_html trên server thật (xem api/config.php) nên không
-  # còn là file tĩnh thật ở đây nữa — chuyển hướng nội bộ sang script PHP đọc & trả về đúng file.
+  # Chuyển hướng lưu trữ hình ảnh đa tenant sang serve_storage.php
   RewriteRule ^api/storage/(.+)$ api/serve_storage.php?path=$1 [L,QSA]
 
   RewriteRule ^index\.html$ - [L]
   RewriteCond %{REQUEST_FILENAME} !-f
   RewriteCond %{REQUEST_FILENAME} !-d
   RewriteRule . /index.html [L]
+</IfModule>
+
+# Cấu hình Security Headers
+<IfModule mod_headers.c>
+  Header always set X-Content-Type-Options "nosniff"
+  Header always set X-Frame-Options "SAMEORIGIN"
+  Header always set Referrer-Policy "strict-origin-when-cross-origin"
+  Header always set Permissions-Policy "camera=(), microphone=(), geolocation=(self)"
 </IfModule>

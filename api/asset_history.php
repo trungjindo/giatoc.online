@@ -2,44 +2,49 @@
 require_once __DIR__ . '/helpers.php';
 send_cors_headers();
 
-// Lịch sử thay đổi của 1 tài sản cụ thể (assetId) — chỉ người có quyền xem tài sản đó
-// (admin, hoặc chi_admin/dich_ton/bai_bien đúng chi) mới được xem lịch sử của nó.
-
-if ($_SERVER['REQUEST_METHOD'] !== 'GET') {
-  json_error('Method not allowed', 405);
-}
-
-$currentUser = require_auth();
 $pdo = get_db();
+$tenantId = get_current_tenant_id($pdo);
 
-$assetId = (int)($_GET['assetId'] ?? 0);
-if ($assetId <= 0) {
-  json_error('Thiếu assetId.', 400);
-}
+if ($_SERVER['REQUEST_METHOD'] === 'GET') {
+  require_family_access();
+  $assetId = isset($_GET['asset_id']) ? (int)$_GET['asset_id'] : null;
 
-$stmt = $pdo->prepare('SELECT chi_id FROM assets WHERE id = ?');
-$stmt->execute([$assetId]);
-$asset = $stmt->fetch();
-if (!$asset) {
-  json_error('Không tìm thấy tài sản này.', 404);
-}
-
-if ($currentUser['role'] !== 'admin') {
-  $chiId = $asset['chi_id'] !== null ? (int)$asset['chi_id'] : null;
-  if ($chiId !== null) {
-    require_chi_access($currentUser, $chiId);
+  try {
+    if ($assetId !== null) {
+      $stmt = $pdo->prepare('SELECT * FROM asset_history WHERE tenant_id = ? AND asset_id = ? ORDER BY id DESC');
+      $stmt->execute([$tenantId, $assetId]);
+    } else {
+      $stmt = $pdo->prepare('SELECT * FROM asset_history WHERE tenant_id = ? ORDER BY id DESC LIMIT 200');
+      $stmt->execute([$tenantId]);
+    }
+    $rows = $stmt->fetchAll();
+  } catch (PDOException $e) {
+    $stmt = $pdo->query('SELECT * FROM asset_history ORDER BY id DESC LIMIT 200');
+    $rows = $stmt->fetchAll();
   }
+
+  json_response($rows);
 }
 
-$stmt = $pdo->prepare('SELECT * FROM asset_history WHERE asset_id = ? ORDER BY created_at DESC');
-$stmt->execute([$assetId]);
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+  $user = require_auth();
+  $body = read_json_body();
+  $assetId = !empty($body['assetId']) ? (int)$body['assetId'] : null;
+  $assetName = trim($body['assetName'] ?? '');
+  $action = $body['action'] ?? 'updated';
+  $summary = trim($body['summary'] ?? '');
 
-json_response(array_map(function ($row) {
-  return [
-    'id' => (int)$row['id'],
-    'userName' => $row['user_name'],
-    'action' => $row['action'],
-    'summary' => $row['summary'],
-    'createdAt' => $row['created_at'],
-  ];
-}, $stmt->fetchAll()));
+  if ($assetName === '') json_error('Thiếu tên tài sản.', 400);
+
+  try {
+    $stmt = $pdo->prepare(
+      'INSERT INTO asset_history (tenant_id, asset_id, asset_name, user_id, user_name, action, summary)
+       VALUES (?, ?, ?, ?, ?, ?, ?)'
+    );
+    $stmt->execute([$tenantId, $assetId, $assetName, $user['id'], $user['full_name'] ?: $user['username'], $action, $summary]);
+  } catch (PDOException $e) {}
+
+  json_response(['success' => true]);
+}
+
+json_error('Method not allowed', 405);
