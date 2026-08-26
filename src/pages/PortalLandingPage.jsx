@@ -1,6 +1,11 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { Sparkles, Shield, TreePine, MapPin, DollarSign, Users, CheckCircle, ArrowRight, ExternalLink, HelpCircle, Phone, BookOpen, Lock, Landmark, Check, Bot, Send, Search, Star, Award, ShieldCheck, HeartHandshake } from 'lucide-react';
+import { 
+  Sparkles, Shield, TreePine, MapPin, DollarSign, Users, CheckCircle, 
+  ArrowRight, ExternalLink, HelpCircle, Phone, BookOpen, Lock, Landmark, 
+  Check, Bot, Send, Search, Star, Award, ShieldCheck, HeartHandshake,
+  Eye, Calendar, Receipt, Smartphone, Navigation, Share2, Layers, Cpu
+} from 'lucide-react';
 import OceanScene from '../components/OceanScene';
 import RegistrationModal from '../components/RegistrationModal';
 
@@ -8,6 +13,7 @@ export default function PortalLandingPage() {
   const [modalOpen, setModalOpen] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState('standard');
   const [quickSlug, setQuickSlug] = useState('');
+  const [activePreviewTab, setActivePreviewTab] = useState('tree');
 
   const pricingPlans = [
     {
@@ -188,6 +194,7 @@ export default function PortalLandingPage() {
 
         <div className="hidden md:flex items-center space-x-6 text-xs font-bold text-[#163247]">
           <a href="#features" className="hover:text-[#0E6FA8] transition-colors">Tính Năng</a>
+          <a href="#demo-preview" className="hover:text-[#0E6FA8] transition-colors">Trực Quan Demo</a>
           <a href="#rbac" className="hover:text-[#0E6FA8] transition-colors">Phân Quyền RBAC</a>
           <a href="#pricing" className="hover:text-[#0E6FA8] transition-colors">Bảng Giá</a>
           <Link to="/huong-dan-thiet-lap" className="hover:text-[#0E6FA8] transition-colors">Hướng Dẫn Vận Hành</Link>
@@ -259,6 +266,226 @@ export default function PortalLandingPage() {
             <span className="flex items-center"><CheckCircle className="w-4 h-4 text-emerald-600 mr-1.5" /> Tự động khởi tạo sau khi xác nhận</span>
             <span className="flex items-center"><CheckCircle className="w-4 h-4 text-emerald-600 mr-1.5" /> Máy chủ 50 GB NVMe tốc độ cao</span>
           </div>
+        </div>
+      </section>
+
+      {/* Interactive Feature Demo Simulator */}
+      <section id="demo-preview" className="py-12 px-4 sm:px-8 max-w-6xl mx-auto">
+        <div className="bg-white rounded-3xl p-6 sm:p-10 border border-[#E1E8EC] shadow-xl space-y-6">
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-4 border-b border-[#E1E8EC] pb-6">
+            <div>
+              <span className="text-xs font-bold text-[#B45309] uppercase tracking-wider bg-[#F5E9D6] px-3 py-1 rounded-full">
+                Trực Quan Giao Diện
+              </span>
+              <h2 className="text-xl sm:text-3xl font-extrabold text-[#0A5480] font-serif mt-2">
+                Trải Nghiệm Các Tính Năng Trọng Tâm
+              </h2>
+            </div>
+            {/* Tab buttons */}
+            <div className="flex flex-wrap gap-2 p-1.5 bg-[#FBF7EF] rounded-2xl border border-[#E1E8EC]">
+              {[
+                { id: 'tree', label: 'Cây Gia Phả', icon: TreePine },
+                { id: 'tomb', label: 'Bản Đồ Lăng Mộ', icon: MapPin },
+                { id: 'finance', label: 'Sổ Quỹ Thu Chi', icon: DollarSign },
+                { id: 'zns', label: 'Tin Nhắn Zalo', icon: Send },
+              ].map(tab => {
+                const Icon = tab.icon;
+                return (
+                  <button
+                    key={tab.id}
+                    onClick={() => setActivePreviewTab(tab.id)}
+                    className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center space-x-1.5 ${
+                      activePreviewTab === tab.id
+                        ? 'bg-[#0E6FA8] text-white shadow-md'
+                        : 'text-[#5B7583] hover:text-[#163247]'
+                    }`}
+                  >
+                    <Icon className="w-3.5 h-3.5" />
+                    <span>{tab.label}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Tab Content Display */}
+          {activePreviewTab === 'tree' && (
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-center">
+              <div className="lg:col-span-2 p-6 bg-[#FBF7EF] rounded-2xl border border-[#F2C46A]/40 space-y-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-2">
+                    <span className="w-3 h-3 rounded-full bg-emerald-500" />
+                    <span className="text-xs font-bold text-[#0A5480]">Sơ đồ cây phả hệ đa thế hệ</span>
+                  </div>
+                  <span className="text-[11px] bg-white px-2.5 py-1 rounded-lg border text-[#5B7583] font-semibold">
+                    Đời 1 ➔ Đời 6
+                  </span>
+                </div>
+                {/* Visual family node mock */}
+                <div className="space-y-3">
+                  <div className="p-4 bg-white rounded-xl border border-[#0E6FA8]/40 shadow-sm flex items-center justify-between">
+                    <div className="flex items-center space-x-3">
+                      <div className="w-10 h-10 rounded-full bg-[#0A5480] text-[#F7D890] flex items-center justify-center font-bold text-xs">
+                        Cụ Tổ
+                      </div>
+                      <div>
+                        <div className="font-bold text-sm text-[#0A5480]">Cụ Khởi Tổ (Đời 1)</div>
+                        <div className="text-[11px] text-[#5B7583]">Năm sinh: ~1850 • Chi Trưởng</div>
+                      </div>
+                    </div>
+                    <span className="px-2.5 py-1 bg-amber-50 text-[#B45309] rounded-full text-[10px] font-bold border border-amber-200">
+                      Thuỷ Tổ
+                    </span>
+                  </div>
+
+                  <div className="pl-6 border-l-2 border-dashed border-[#0E6FA8]/40 space-y-2">
+                    <div className="p-3.5 bg-white rounded-xl border border-[#E1E8EC] shadow-xs flex items-center justify-between">
+                      <div className="flex items-center space-x-3">
+                        <div className="w-8 h-8 rounded-full bg-[#0E6FA8] text-white flex items-center justify-center font-bold text-xs">
+                          Cụ 2
+                        </div>
+                        <div>
+                          <div className="font-bold text-xs text-[#163247]">Cụ Đệ Nhị Thế (Đời 2)</div>
+                          <div className="text-[10px] text-[#5B7583]">Chi Trưởng • 4 Con Trai</div>
+                        </div>
+                      </div>
+                      <span className="px-2 py-0.5 bg-blue-50 text-blue-800 rounded-md text-[10px] font-bold">
+                        Chi Trưởng
+                      </span>
+                    </div>
+
+                    <div className="pl-6 border-l-2 border-dashed border-[#0E6FA8]/40">
+                      <div className="p-3 bg-white rounded-xl border border-[#E1E8EC] shadow-xs flex items-center justify-between">
+                        <div className="flex items-center space-x-2.5">
+                          <div className="w-7 h-7 rounded-full bg-teal-700 text-white flex items-center justify-center font-bold text-[11px]">
+                            Ô.3
+                          </div>
+                          <div>
+                            <div className="font-bold text-xs text-[#163247]">Ông Đệ Tam Thế (Đời 3)</div>
+                            <div className="text-[10px] text-emerald-700 font-semibold">Đang sinh sống • 0912.***.*** (Đã bảo mật)</div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="space-y-4">
+                <h3 className="text-lg font-bold text-[#0A5480] font-serif">Xem Gia Phả Dễ Dàng Như Xem Bản Đồ</h3>
+                <ul className="space-y-2.5 text-xs text-[#5B7583]">
+                  <li className="flex items-start"><Check className="w-4 h-4 text-emerald-600 mr-2 flex-shrink-0 mt-0.5" /> Phóng to, thu nhỏ mượt mà trên cả điện thoại và máy tính.</li>
+                  <li className="flex items-start"><Check className="w-4 h-4 text-emerald-600 mr-2 flex-shrink-0 mt-0.5" /> Tìm kiếm tên con cháu, xem ảnh thờ, tiểu sử và phối ngẫu.</li>
+                  <li className="flex items-start"><Check className="w-4 h-4 text-emerald-600 mr-2 flex-shrink-0 mt-0.5" /> Xuất file Excel hoặc in ấn gia phả A4/A3 sắc nét.</li>
+                </ul>
+                <a
+                  href="?tenant=demo"
+                  className="inline-flex items-center space-x-1.5 px-4 py-2.5 bg-[#F5E9D6] hover:bg-[#F2C46A]/40 text-[#0A5480] rounded-xl text-xs font-bold border border-[#F2C46A]/60 transition-all"
+                >
+                  <span>Xem Demo Thực Tế</span>
+                  <ArrowRight className="w-3.5 h-3.5" />
+                </a>
+              </div>
+            </div>
+          )}
+
+          {activePreviewTab === 'tomb' && (
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-center">
+              <div className="lg:col-span-2 p-6 bg-[#FBF7EF] rounded-2xl border border-[#F2C46A]/40 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-2">
+                    <Navigation className="w-4 h-4 text-[#0E6FA8]" />
+                    <span className="text-xs font-bold text-[#0A5480]">Vị trí Lăng Mộ Tổ Tiên (Vệ tinh GPS)</span>
+                  </div>
+                  <span className="text-[11px] bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded font-bold">
+                    Tọa Độ GPS Chuẩn
+                  </span>
+                </div>
+                <div className="p-4 bg-white rounded-xl border border-[#E1E8EC] space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="font-bold text-sm text-[#0A5480]">Lăng Mộ Cụ Thủy Tổ</span>
+                    <span className="text-[11px] text-[#5B7583]">Khu Đồng Lăng, Quỳnh Lập</span>
+                  </div>
+                  <p className="text-xs text-[#5B7583]">Tọa độ: 19.234567, 105.789123 • Hướng Nam</p>
+                  <div className="pt-2 flex items-center space-x-2">
+                    <span className="px-3 py-1 bg-blue-50 text-[#0E6FA8] rounded-lg text-xs font-bold flex items-center space-x-1">
+                      <MapPin className="w-3.5 h-3.5 mr-1" /> Chỉ đường Google Maps
+                    </span>
+                  </div>
+                </div>
+              </div>
+              <div className="space-y-4">
+                <h3 className="text-lg font-bold text-[#0A5480] font-serif">Con Cháu Ở Xa Luôn Tìm Được Về Cội Nguồn</h3>
+                <p className="text-xs text-[#5B7583] leading-relaxed">
+                  Lưu trữ tọa độ chính xác từng ngôi mộ kèm hình ảnh bia mộ thực tế. Con cháu chỉ cần bấm nút "Chỉ đường" trên điện thoại là ứng dụng Google Maps sẽ dẫn đường tận nơi.
+                </p>
+              </div>
+            </div>
+          )}
+
+          {activePreviewTab === 'finance' && (
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-center">
+              <div className="lg:col-span-2 p-6 bg-[#FBF7EF] rounded-2xl border border-[#F2C46A]/40 space-y-3">
+                <div className="grid grid-cols-3 gap-2 text-center">
+                  <div className="p-3 bg-white rounded-xl border border-[#E1E8EC]">
+                    <div className="text-[10px] text-[#5B7583] uppercase font-bold">Tổng Thu Niên Khóa</div>
+                    <div className="text-sm font-black text-emerald-700 mt-0.5">85.400.000 đ</div>
+                  </div>
+                  <div className="p-3 bg-white rounded-xl border border-[#E1E8EC]">
+                    <div className="text-[10px] text-[#5B7583] uppercase font-bold">Tổng Chi Tế Tự</div>
+                    <div className="text-sm font-black text-rose-700 mt-0.5">32.150.000 đ</div>
+                  </div>
+                  <div className="p-3 bg-[#F5E9D6] rounded-xl border border-[#F2C46A]">
+                    <div className="text-[10px] text-[#B45309] uppercase font-bold">Tồn Quỹ Họ</div>
+                    <div className="text-sm font-black text-[#0A5480] mt-0.5">53.250.000 đ</div>
+                  </div>
+                </div>
+                <div className="p-3 bg-white rounded-xl border border-[#E1E8EC] flex items-center justify-between text-xs">
+                  <div>
+                    <span className="font-bold text-[#163247]">Công đức tu bổ nhà thờ họ</span>
+                    <span className="text-[11px] text-[#5B7583] block">Gia đình anh Nguyễn Duy Bình • Kèm ảnh biên lai</span>
+                  </div>
+                  <span className="font-bold text-emerald-700">+5.000.000 đ</span>
+                </div>
+              </div>
+              <div className="space-y-4">
+                <h3 className="text-lg font-bold text-[#0A5480] font-serif">Minh Bạch Thu Chi — Gắn Kết Dòng Tộc</h3>
+                <p className="text-xs text-[#5B7583] leading-relaxed">
+                  Phân công người làm Bãi biện theo từng năm tế họ. Cho phép chụp ảnh hóa đơn, biên nhận đính kèm công khai để toàn thể con cháu đều theo dõi được.
+                </p>
+              </div>
+            </div>
+          )}
+
+          {activePreviewTab === 'zns' && (
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-center">
+              <div className="lg:col-span-2 p-6 bg-[#FBF7EF] rounded-2xl border border-[#F2C46A]/40 space-y-3">
+                <div className="p-4 bg-white rounded-2xl border border-[#0E6FA8]/30 shadow-md space-y-2.5">
+                  <div className="flex items-center space-x-2 border-b border-slate-100 pb-2">
+                    <div className="w-7 h-7 rounded-full bg-blue-600 text-white flex items-center justify-center font-bold text-xs">
+                      Z
+                    </div>
+                    <div>
+                      <div className="font-bold text-xs text-blue-900">Zalo Official Account • Thông Báo Dòng Họ</div>
+                      <div className="text-[10px] text-slate-500">Tin nhắn ZNS thương hiệu dòng tộc</div>
+                    </div>
+                  </div>
+                  <div className="text-xs text-[#163247] space-y-1 bg-slate-50 p-3 rounded-xl">
+                    <p className="font-bold text-[#0A5480]">KÍNH GỬI: BÁC NGUYỄN DUY BÌNH</p>
+                    <p className="text-[11px] text-slate-700">
+                      Ban liên lạc dòng họ trân trọng kính mời gia đình về dự Lễ Giỗ Tổ thường niên vào ngày 15 tháng Chạp tại Từ đường dòng họ.
+                    </p>
+                  </div>
+                </div>
+              </div>
+              <div className="space-y-4">
+                <h3 className="text-lg font-bold text-[#0A5480] font-serif">Gửi Tin Tức Thời Đến Hàng Trăm Con Cháu</h3>
+                <p className="text-xs text-[#5B7583] leading-relaxed">
+                  Không còn phải gọi điện thủ công từng nhà. Hệ thống tự động lọc số điện thoại từ cây gia phả và gửi tin nhắn Zalo thông báo nhắc giỗ, thu quỹ họ chỉ trong 1 click với cước chỉ 400 đ/tin.
+                </p>
+              </div>
+            </div>
+          )}
         </div>
       </section>
 
