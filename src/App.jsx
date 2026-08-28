@@ -61,7 +61,7 @@ function App() {
   // Nhận diện xem đang truy cập Cổng SaaS giatoc.online hay Website dòng họ cụ thể
   const host = window.location.hostname.toLowerCase();
   const searchParams = new URLSearchParams(location.search);
-  const isPortalDomain = host === 'giatoc.online' || host === 'www.giatoc.online';
+  const isPortalDomain = host === 'giatoc.online' || host === 'www.giatoc.online' || host === 'localhost' || host === '127.0.0.1';
   const hasTenantExplicit = !!searchParams.get('tenant') || (host.includes('.giatoc.online') && !isPortalDomain) || host === 'hotrandinh.com' || host === 'www.hotrandinh.com';
 
   const isPortalMode = location.pathname === '/portal' || (isPortalDomain && !hasTenantExplicit && location.pathname === '/');

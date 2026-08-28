@@ -1,171 +1,71 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { 
-  Sparkles, Shield, TreePine, MapPin, DollarSign, Users, CheckCircle, 
-  ArrowRight, ExternalLink, HelpCircle, Phone, BookOpen, Lock, Landmark, 
-  Check, Bot, Send, Search, Star, Award, ShieldCheck, HeartHandshake,
-  Eye, Calendar, Receipt, Smartphone, Navigation, Share2, Layers, Cpu
+import {
+  Sparkles, Shield, TreePine, MapPin, DollarSign, Users, CheckCircle,
+  ArrowRight, ExternalLink, Phone, Check, Bot, Send, Star, ShieldCheck, HeartHandshake,
+  Minus, Zap, Globe, Database, UserCog, Image, MessageSquare
 } from 'lucide-react';
-import OceanScene from '../components/OceanScene';
 import RegistrationModal from '../components/RegistrationModal';
 
 export default function PortalLandingPage() {
   const [modalOpen, setModalOpen] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState('standard');
   const [quickSlug, setQuickSlug] = useState('');
-  const [activePreviewTab, setActivePreviewTab] = useState('tree');
 
   const pricingPlans = [
     {
-      id: 'basic',
-      name: 'Gói Cơ Bản',
-      sub: 'Dành cho Chi nhỏ / Gia đình',
-      price: '590.000',
-      period: 'đ / năm',
-      badge: 'Tiết Kiệm',
-      features: [
-        'Dưới 300 thành viên gia phả',
-        'Subdomain riêng ([họ].giatoc.online)',
-        '2 GB lưu trữ hình ảnh tư liệu',
-        '2 Tài khoản quản trị viên',
-        'Bản đồ lăng mộ tổ tiên GPS',
-        'Sổ thu chi & Quỹ dòng họ',
-        'Cổng xác thực con cháu 3 lớp',
-        'Tặng 50 tin nhắn thông báo ZNS'
-      ]
+      id: 'basic', name: 'Cơ Bản', sub: 'Chi nhỏ / Gia đình', price: '590.000đ', period: '/ năm',
+      badge: 'Tiết Kiệm', badgeColor: 'bg-slate-500',
+      members: '≤ 300', admins: '2', storage: '2 GB', domain: 'Subdomain', zns: '50',
+      features: { tree: true, map: true, finance: true, auth: true, excel: false, ai: false, assets: false, altar: false, privacy: false, yearbook: false, support: false }
     },
     {
-      id: 'standard',
-      name: 'Gói Tiêu Chuẩn',
-      sub: 'Dành cho Dòng họ quy mô vừa',
-      price: '1.290.000',
-      period: 'đ / năm',
-      badge: 'Khuyên Dùng ★',
-      isPopular: true,
-      features: [
-        'Dưới 1.500 thành viên gia phả',
-        'Subdomain riêng ([họ].giatoc.online)',
-        '10 GB lưu trữ hình ảnh tư liệu',
-        '5 Tài khoản quản trị & Phân quyền Chi',
-        'Phân công Bãi biện quản lý theo năm',
-        'Bản đồ lăng mộ & Quản lý tài sản họ',
-        'Import / Export Excel 1 giây',
-        'Trợ lý AI tra cứu xưng hô gia tộc',
-        'Tặng 200 tin nhắn thông báo ZNS'
-      ]
+      id: 'standard', name: 'Tiêu Chuẩn', sub: 'Dòng họ quy mô vừa', price: '1.290.000đ', period: '/ năm',
+      badge: 'Phổ Biến Nhất', badgeColor: 'bg-primary', isPopular: true,
+      members: '≤ 1.500', admins: '5', storage: '10 GB', domain: 'Subdomain', zns: '200',
+      features: { tree: true, map: true, finance: true, auth: true, excel: true, ai: true, assets: true, altar: false, privacy: false, yearbook: false, support: false }
     },
     {
-      id: 'premium',
-      name: 'Gói Cao Cấp',
-      sub: 'Dành cho Dòng họ lớn / Nhiều chi phái',
-      price: '2.490.000',
-      period: 'đ / năm',
-      badge: 'Đầy Đủ Tính Năng',
-      features: [
-        'Dưới 5.000 thành viên gia phả',
-        'Hỗ trợ gắn Tên Miền Riêng (custom domain)',
-        '30 GB lưu trữ hình ảnh tư liệu',
-        '15 Tài khoản Quản trị Chi & Đích Tôn',
-        'Quản lý khấu hao tài sản & đất đai họ',
-        'Bàn thờ số & Tưởng niệm ngày giỗ',
-        'Bảo mật che số điện thoại thông minh',
-        'Trợ lý AI xưng hô & phong tục tế tự',
-        'Tặng 500 tin nhắn thông báo ZNS'
-      ]
+      id: 'premium', name: 'Cao Cấp', sub: 'Dòng họ lớn', price: '2.490.000đ', period: '/ năm',
+      badge: 'Đầy Đủ', badgeColor: 'bg-amber-600',
+      members: '≤ 5.000', admins: '15', storage: '30 GB', domain: 'Custom domain', zns: '500',
+      features: { tree: true, map: true, finance: true, auth: true, excel: true, ai: true, assets: true, altar: true, privacy: true, yearbook: false, support: false }
     },
     {
-      id: 'unlimited',
-      name: 'Gói Đại Tộc',
-      sub: 'Dành cho Đại tộc toàn quốc',
-      price: '4.990.000',
-      period: 'đ / năm',
-      badge: 'Vương Giả',
-      features: [
-        'Không giới hạn thành viên gia phả',
-        'Gắn Tên Miền Riêng + SSL miễn phí',
-        '100 GB lưu trữ dữ liệu NVMe',
-        'Vô hạn tài khoản Quản trị chi phái',
-        'Hỗ trợ xuất file in sách kỷ yếu A4/A3',
-        'Chuyên gia số hóa & hỗ trợ riêng 24/7',
-        'Tặng 1.500 tin nhắn thông báo ZNS'
-      ]
+      id: 'unlimited', name: 'Đại Tộc', sub: 'Đại tộc toàn quốc', price: '4.990.000đ', period: '/ năm',
+      badge: 'Vương Giả', badgeColor: 'bg-amber-700',
+      members: 'Không giới hạn', admins: 'Không giới hạn', storage: '100 GB', domain: 'Custom + SSL', zns: '1.500',
+      features: { tree: true, map: true, finance: true, auth: true, excel: true, ai: true, assets: true, altar: true, privacy: true, yearbook: true, support: true }
     }
   ];
 
-  const rbacRoles = [
-    {
-      step: '01',
-      role: 'Khách Ngoài Họ',
-      tag: 'Public Viewer',
-      color: 'bg-slate-100 text-slate-700 border-slate-200',
-      icon: Users,
-      desc: 'Xem giới thiệu lịch sử, tin tức hoạt động, nhà thờ họ và cây phả hệ tổng quan (tự động che số điện thoại để bảo vệ quyền riêng tư con cháu).'
-    },
-    {
-      step: '02',
-      role: 'Con Cháu Trong Họ',
-      tag: 'Family Viewer',
-      color: 'bg-blue-50 text-blue-800 border-blue-200',
-      icon: ShieldCheck,
-      desc: 'Xác thực 3 lớp bí mật (Họ tên + Tên thân sinh + Ngày tế họ âm lịch) để mở khóa xem toàn bộ số điện thoại, vị trí lăng mộ GPS và báo cáo thu chi.'
-    },
-    {
-      step: '03',
-      role: 'Người Làm Bãi Biện',
-      tag: 'Nhập Liệu Niên Khóa',
-      color: 'bg-amber-50 text-amber-900 border-amber-200',
-      icon: DollarSign,
-      desc: 'Ghi chép sổ thu chi quỹ họ, đính kèm ảnh chụp hóa đơn chứng từ theo đúng năm tế họ phụ trách. Tự động đóng quyền khi hết nhiệm kỳ niên khóa.'
-    },
-    {
-      step: '04',
-      role: 'Quản Trị Chi / Đích Tôn',
-      tag: 'Branch Admin',
-      color: 'bg-teal-50 text-teal-900 border-teal-200',
-      icon: TreePine,
-      desc: 'Quản lý cây phả hệ độc lập trong Chi phái của mình, quản lý tài sản Chi và phân công tài khoản bãi biện luân phiên hàng năm.'
-    },
-    {
-      step: '05',
-      role: 'Super Admin Dòng Họ',
-      tag: 'Clan Administrator',
-      color: 'bg-amber-100 text-amber-950 border-amber-300',
-      icon: Award,
-      desc: 'Toàn quyền điều hành cây gia phả chung, quản lý đất đai từ đường, khấu hao tài sản, quản lý tài khoản thành viên và phát động tin nhắn Zalo ZNS.'
-    }
+  const comparisonRows = [
+    { key: 'members', label: 'Số thành viên gia phả', icon: Users, type: 'value' },
+    { key: 'admins', label: 'Tài khoản quản trị', icon: UserCog, type: 'value' },
+    { key: 'storage', label: 'Lưu trữ dữ liệu', icon: Database, type: 'value' },
+    { key: 'domain', label: 'Tên miền', icon: Globe, type: 'value' },
+    { key: 'zns', label: 'Tin nhắn Zalo ZNS', icon: MessageSquare, type: 'value' },
+    { divider: true, label: 'Tính Năng' },
+    { key: 'tree', label: 'Sơ đồ phả hệ tương tác', icon: TreePine, type: 'feature' },
+    { key: 'map', label: 'Bản đồ lăng mộ GPS', icon: MapPin, type: 'feature' },
+    { key: 'finance', label: 'Sổ quỹ & thu chi', icon: DollarSign, type: 'feature' },
+    { key: 'auth', label: 'Xác thực con cháu 3 lớp', icon: ShieldCheck, type: 'feature' },
+    { key: 'excel', label: 'Import / Export Excel', icon: Zap, type: 'feature' },
+    { key: 'ai', label: 'Trợ lý AI xưng hô', icon: Bot, type: 'feature' },
+    { key: 'assets', label: 'Quản lý tài sản dòng họ', icon: Shield, type: 'feature' },
+    { key: 'altar', label: 'Bàn thờ số & tưởng niệm', icon: Star, type: 'feature' },
+    { key: 'privacy', label: 'Bảo mật số ĐT thông minh', icon: Shield, type: 'feature' },
+    { key: 'yearbook', label: 'Xuất in sách kỷ yếu A4/A3', icon: Image, type: 'feature' },
+    { key: 'support', label: 'Chuyên gia hỗ trợ 24/7', icon: HeartHandshake, type: 'feature' },
   ];
 
-  const coreFeatures = [
-    {
-      icon: TreePine,
-      title: 'Sơ Đồ Phả Hệ Tương Tác',
-      desc: 'Hiển thị cây gia phả đa thế hệ trực quan, hỗ trợ phóng to thu nhỏ (zoom & pan), tìm kiếm con cháu theo cành nhánh và xuất file Excel chỉ trong 1 giây.'
-    },
-    {
-      icon: MapPin,
-      title: 'Bản Đồ Lăng Mộ GPS Vệ Tinh',
-      desc: 'Gắn tọa độ vị trí khu lăng mộ tổ tiên lên bản đồ vệ tinh kèm hình ảnh thực tế, giúp con cháu ở xa dễ dàng tìm đường về viếng thăm chính xác qua Google Maps.'
-    },
-    {
-      icon: DollarSign,
-      title: 'Sổ Quỹ & Thu Chi Bãi Biện',
-      desc: 'Quản lý minh bạch từng khoản đóng góp, suất đinh, công đức và các khoản chi tế tự. Cho phép chụp ảnh hóa đơn chứng từ lưu trữ công khai.'
-    },
-    {
-      icon: Send,
-      title: 'Ví Gửi Tin Nhắn Zalo ZNS',
-      desc: 'Hệ thống gửi tin nhắn thông báo tự động tới điện thoại/Zalo con cháu: nhắc ngày giỗ họ, kêu gọi công đức, thu quỹ niên khóa và kính báo tin buồn.'
-    },
-    {
-      icon: Bot,
-      title: 'Trợ Lý AI Xưng Hô Dòng Tộc',
-      desc: 'Ứng dụng thuật toán AI phân tích thế hệ, chi trưởng/thứ để chỉ dẫn danh xưng chính xác (Bác, Chú, Cô, Cậu, Anh, Em họ) và giải đáp phong tục tế lễ.'
-    },
-    {
-      icon: ShieldCheck,
-      title: 'Cổng Xác Thực 3 Lớp Bí Mật',
-      desc: 'Bảo vệ quyền riêng tư số điện thoại con cháu tuyệt đối. Chỉ con cháu trả lời đúng ngày tế họ âm lịch và tên thân sinh mới được xem thông tin liên lạc.'
-    }
+  const features = [
+    { icon: TreePine, title: 'Sơ Đồ Phả Hệ', desc: 'Cây gia phả đa thế hệ, zoom & pan mượt mà trên mọi thiết bị.' },
+    { icon: MapPin, title: 'Bản Đồ Lăng Mộ GPS', desc: 'Định vị tọa độ vệ tinh, ảnh thực tế, dẫn đường Google Maps.' },
+    { icon: DollarSign, title: 'Sổ Quỹ Thu Chi', desc: 'Minh bạch tài chính, đính kèm ảnh hóa đơn chứng từ.' },
+    { icon: Send, title: 'Tin Nhắn Zalo ZNS', desc: 'Nhắc giỗ, kêu gọi công đức tự động chỉ 1 chạm.' },
+    { icon: Bot, title: 'Trợ Lý AI Xưng Hô', desc: 'Tra cứu danh xưng, vai vế chính xác theo phong tục.' },
+    { icon: ShieldCheck, title: 'Phân Quyền RBAC 5 Cấp', desc: 'Bảo mật 3 lớp, che số điện thoại, phân quyền rõ ràng.' },
   ];
 
   const openRegister = (planId = 'standard') => {
@@ -174,526 +74,230 @@ export default function PortalLandingPage() {
   };
 
   return (
-    <div className="min-h-screen bg-[#FBF7EF] text-[#163247] font-sans selection:bg-[#F2C46A] selection:text-[#0A5480]">
-      
-      {/* Top Navbar */}
-      <nav className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-[#E1E8EC] px-4 sm:px-8 py-3.5 flex items-center justify-between shadow-xs">
-        <div className="flex items-center space-x-3">
-          <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[#0E6FA8] to-[#0A5480] flex items-center justify-center text-[#F7D890] font-black shadow-md border border-[#F2C46A]/40 text-sm">
-            GT
-          </div>
-          <div>
-            <span className="text-xl font-bold tracking-tight text-[#0A5480] font-serif block leading-tight">
-              Gia Tộc Online
-            </span>
-            <span className="text-[11px] font-semibold text-[#5B7583] tracking-wide">
-              Nền tảng số hóa gia tộc • giatoc.online
-            </span>
-          </div>
-        </div>
+    <div className="min-h-screen bg-sand-light font-sans text-navy-900">
 
-        <div className="hidden md:flex items-center space-x-6 text-xs font-bold text-[#163247]">
-          <a href="#features" className="hover:text-[#0E6FA8] transition-colors">Tính Năng</a>
-          <a href="#demo-preview" className="hover:text-[#0E6FA8] transition-colors">Trực Quan Demo</a>
-          <a href="#rbac" className="hover:text-[#0E6FA8] transition-colors">Phân Quyền RBAC</a>
-          <a href="#pricing" className="hover:text-[#0E6FA8] transition-colors">Bảng Giá</a>
-          <Link to="/huong-dan-thiet-lap" className="hover:text-[#0E6FA8] transition-colors">Hướng Dẫn Vận Hành</Link>
-          <a
-            href="?tenant=demo"
-            className="px-3 py-1 bg-[#F5E9D6] text-[#0A5480] rounded-full border border-[#F2C46A]/50 hover:bg-[#F2C46A]/30 transition-all flex items-center space-x-1"
-          >
-            <span>Dòng Họ Mẫu Demo</span>
-            <ExternalLink className="w-3 h-3" />
+      {/* ── NAVBAR ───────────────────────────────────────────── */}
+      <nav className="fixed top-0 inset-x-0 z-50 bg-white/95 backdrop-blur border-b border-gray-200 shadow-sm">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-[72px] flex items-center justify-between">
+          {/* Logo */}
+          <a href="#" className="flex items-center gap-3">
+            <div className="w-11 h-11 rounded-full bg-gradient-to-br from-primary to-primary-dark flex items-center justify-center text-secondary font-black text-sm border-2 border-secondary/40 shadow">GT</div>
+            <div className="leading-tight">
+              <div className="text-xl font-bold text-primary-dark font-serif">Gia Tộc Online</div>
+              <div className="text-[11px] font-medium text-gray-500 tracking-wider uppercase">Nền tảng số hóa dòng họ</div>
+            </div>
           </a>
-        </div>
 
-        <div className="flex items-center space-x-2">
-          <button
-            onClick={() => openRegister('standard')}
-            className="px-4 py-2 bg-gradient-to-r from-[#0E6FA8] to-[#0A5480] hover:from-[#1C8FD6] hover:to-[#0E6FA8] text-white font-bold text-xs rounded-xl shadow-md transition-all flex items-center space-x-1.5 border border-[#F2C46A]/30"
-          >
-            <span>Tạo Website Dòng Họ</span>
-            <ArrowRight className="w-3.5 h-3.5 text-[#F7D890]" />
+          {/* Nav links */}
+          <div className="hidden lg:flex items-center gap-8 text-sm font-semibold text-navy-900">
+            <a href="#features" className="hover:text-primary transition-colors">Tính Năng</a>
+            <a href="#pricing" className="hover:text-primary transition-colors">Bảng Giá</a>
+            <Link to="/huong-dan-thiet-lap" className="hover:text-primary transition-colors">Hướng Dẫn</Link>
+            <a href="https://hotrandinh.com" target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full bg-sand text-primary-dark border border-secondary/40 hover:bg-secondary/30 transition-colors text-sm font-bold">
+              Xem Demo <ExternalLink className="w-3.5 h-3.5" />
+            </a>
+          </div>
+
+          {/* CTA */}
+          <button onClick={() => openRegister('standard')} className="px-5 py-2.5 rounded-full bg-primary-dark hover:bg-primary text-white font-bold text-sm shadow-md hover:shadow-lg transition-all flex items-center gap-2">
+            Tạo Website <ArrowRight className="w-4 h-4" />
           </button>
         </div>
       </nav>
 
-      {/* Hero Section */}
-      <section className="relative pt-12 pb-20 px-4 sm:px-8 text-center overflow-hidden bg-gradient-to-b from-[#F5E9D6]/60 via-[#FBF7EF] to-[#FBF7EF]">
-        <div className="max-w-5xl mx-auto space-y-6">
-          
-          <div className="inline-flex items-center space-x-2 px-4 py-1.5 bg-white border border-[#F2C46A] rounded-full text-xs font-bold text-[#0A5480] shadow-xs">
-            <Sparkles className="w-4 h-4 text-[#D99B26]" />
-            <span>Nền Tảng Chuyển Đổi Số Gia Tộc & Dòng Họ Hàng Đầu Việt Nam</span>
+      {/* ── HERO ─────────────────────────────────────────────── */}
+      <section className="pt-[120px] pb-24 px-4 sm:px-6 lg:px-8">
+        <div className="max-w-4xl mx-auto text-center space-y-8">
+          <div className="inline-flex items-center gap-2 px-5 py-2 bg-white rounded-full border border-gray-200 shadow-sm text-sm font-semibold text-primary-dark">
+            <Sparkles className="w-4 h-4 text-secondary" />
+            Phần Mềm Quản Lý Gia Tộc Hàng Đầu Việt Nam
           </div>
 
-          <h1 className="text-3xl sm:text-5xl lg:text-6xl font-extrabold text-[#0A5480] font-serif leading-tight">
-            Mộc Bản Thủy Nguyên <br className="hidden sm:inline" />
-            <span className="bg-gradient-to-r from-[#0E6FA8] via-[#0A5480] to-[#B45309] bg-clip-text text-transparent">
-              Gìn Giữ Cội Nguồn — Kết Nối Muôn Đời
-            </span>
+          <h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-extrabold font-serif text-primary-dark leading-[1.15]">
+            Số Hóa Gia Phả<br />
+            <span className="text-secondary-dark">Kết Nối Muôn Đời</span>
           </h1>
 
-          <p className="text-[#5B7583] text-sm sm:text-base max-w-3xl mx-auto leading-relaxed">
-            Trang bị cho dòng tộc của bạn một không gian số hóa trang trọng với tên miền riêng biệt <strong className="text-[#0E6FA8]">[họ].giatoc.online</strong>. Tích hợp trọn bộ: Sơ đồ phả hệ tương tác, Bản đồ lăng mộ GPS, Quản lý thu chi bãi biện niên khóa và Gửi tin nhắn Zalo tự động.
+          <p className="text-lg sm:text-xl text-gray-600 max-w-2xl mx-auto leading-relaxed">
+            Trang bị cho dòng họ một website chuyên nghiệp với tên miền riêng biệt, tích hợp sơ đồ phả hệ, bản đồ lăng mộ GPS, sổ quỹ thu chi minh bạch và tin nhắn Zalo ZNS tự động.
           </p>
 
-          {/* Quick Subdomain Availability Checker */}
-          <div className="max-w-2xl mx-auto p-3 bg-white border-2 border-[#F2C46A] rounded-2xl shadow-lg flex flex-col sm:flex-row items-center gap-2">
-            <div className="relative w-full flex-1 flex items-center">
+          {/* Search bar */}
+          <div className="max-w-xl mx-auto">
+            <div className="flex items-center bg-white rounded-full border-2 border-gray-200 shadow-lg p-1.5 focus-within:border-primary focus-within:ring-4 focus-within:ring-primary/10 transition-all">
               <input
                 type="text"
-                placeholder="Nhập tên dòng họ (ví dụ: nguyenduy, hotrandinh...)"
+                placeholder="Nhập tên dòng họ..."
                 value={quickSlug}
                 onChange={(e) => setQuickSlug(e.target.value.toLowerCase().replace(/[^a-z0-9\-]/g, ''))}
-                className="w-full pl-4 pr-32 py-3 bg-[#FBF7EF] border border-[#E1E8EC] rounded-xl text-[#163247] text-sm font-semibold focus:ring-2 focus:ring-[#0E6FA8] focus:bg-white transition-all"
+                className="flex-1 pl-5 py-3.5 bg-transparent text-navy-900 text-lg font-semibold outline-none placeholder:text-gray-400 placeholder:font-normal min-w-0"
               />
-              <span className="absolute right-3 text-xs font-extrabold text-[#0E6FA8] select-none bg-[#F5E9D6] px-2.5 py-1 rounded-lg">
-                .giatoc.online
-              </span>
+              <span className="hidden sm:block text-sm font-bold text-primary mr-2 whitespace-nowrap">.giatoc.online</span>
+              <button onClick={() => openRegister('standard')} className="px-6 py-3.5 bg-secondary hover:bg-secondary-light text-primary-dark font-black text-sm rounded-full transition-all shadow-sm whitespace-nowrap flex items-center gap-1.5 shrink-0">
+                Khởi Tạo <ArrowRight className="w-4 h-4" />
+              </button>
             </div>
-            <button
-              onClick={() => openRegister('standard')}
-              className="w-full sm:w-auto px-6 py-3 bg-gradient-to-r from-[#0E6FA8] to-[#0A5480] hover:from-[#1C8FD6] hover:to-[#0E6FA8] text-white font-bold text-xs rounded-xl transition-all whitespace-nowrap shadow-md flex items-center justify-center space-x-1.5"
-            >
-              <span>Kiểm Tra & Khởi Tạo Ngay</span>
-              <ArrowRight className="w-3.5 h-3.5 text-[#F7D890]" />
-            </button>
           </div>
 
-          <div className="flex flex-wrap items-center justify-center gap-4 sm:gap-8 text-xs font-semibold text-[#5B7583] pt-2">
-            <span className="flex items-center"><CheckCircle className="w-4 h-4 text-emerald-600 mr-1.5" /> Thanh toán VietQR MBBank chính chủ</span>
-            <span className="flex items-center"><CheckCircle className="w-4 h-4 text-emerald-600 mr-1.5" /> Tự động khởi tạo sau khi xác nhận</span>
-            <span className="flex items-center"><CheckCircle className="w-4 h-4 text-emerald-600 mr-1.5" /> Máy chủ 50 GB NVMe tốc độ cao</span>
+          {/* Trust signals */}
+          <div className="flex flex-wrap justify-center gap-x-8 gap-y-3 text-sm text-gray-500 font-medium pt-2">
+            <span className="flex items-center gap-1.5"><CheckCircle className="w-4 h-4 text-emerald-500" /> Dữ liệu an toàn tuyệt đối</span>
+            <span className="flex items-center gap-1.5"><CheckCircle className="w-4 h-4 text-emerald-500" /> Tự động khởi tạo trong 5 giây</span>
+            <span className="flex items-center gap-1.5"><CheckCircle className="w-4 h-4 text-emerald-500" /> Không phát sinh phụ phí</span>
           </div>
         </div>
       </section>
 
-      {/* Interactive Feature Demo Simulator */}
-      <section id="demo-preview" className="py-12 px-4 sm:px-8 max-w-6xl mx-auto">
-        <div className="bg-white rounded-3xl p-6 sm:p-10 border border-[#E1E8EC] shadow-xl space-y-6">
-          <div className="flex flex-col sm:flex-row items-center justify-between gap-4 border-b border-[#E1E8EC] pb-6">
-            <div>
-              <span className="text-xs font-bold text-[#B45309] uppercase tracking-wider bg-[#F5E9D6] px-3 py-1 rounded-full">
-                Trực Quan Giao Diện
-              </span>
-              <h2 className="text-xl sm:text-3xl font-extrabold text-[#0A5480] font-serif mt-2">
-                Trải Nghiệm Các Tính Năng Trọng Tâm
-              </h2>
-            </div>
-            {/* Tab buttons */}
-            <div className="flex flex-wrap gap-2 p-1.5 bg-[#FBF7EF] rounded-2xl border border-[#E1E8EC]">
-              {[
-                { id: 'tree', label: 'Cây Gia Phả', icon: TreePine },
-                { id: 'tomb', label: 'Bản Đồ Lăng Mộ', icon: MapPin },
-                { id: 'finance', label: 'Sổ Quỹ Thu Chi', icon: DollarSign },
-                { id: 'zns', label: 'Tin Nhắn Zalo', icon: Send },
-              ].map(tab => {
-                const Icon = tab.icon;
-                return (
-                  <button
-                    key={tab.id}
-                    onClick={() => setActivePreviewTab(tab.id)}
-                    className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center space-x-1.5 ${
-                      activePreviewTab === tab.id
-                        ? 'bg-[#0E6FA8] text-white shadow-md'
-                        : 'text-[#5B7583] hover:text-[#163247]'
-                    }`}
-                  >
-                    <Icon className="w-3.5 h-3.5" />
-                    <span>{tab.label}</span>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-
-          {/* Tab Content Display */}
-          {activePreviewTab === 'tree' && (
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-center">
-              <div className="lg:col-span-2 p-6 bg-[#FBF7EF] rounded-2xl border border-[#F2C46A]/40 space-y-4">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center space-x-2">
-                    <span className="w-3 h-3 rounded-full bg-emerald-500" />
-                    <span className="text-xs font-bold text-[#0A5480]">Sơ đồ cây phả hệ đa thế hệ</span>
-                  </div>
-                  <span className="text-[11px] bg-white px-2.5 py-1 rounded-lg border text-[#5B7583] font-semibold">
-                    Đời 1 ➔ Đời 6
-                  </span>
-                </div>
-                {/* Visual family node mock */}
-                <div className="space-y-3">
-                  <div className="p-4 bg-white rounded-xl border border-[#0E6FA8]/40 shadow-sm flex items-center justify-between">
-                    <div className="flex items-center space-x-3">
-                      <div className="w-10 h-10 rounded-full bg-[#0A5480] text-[#F7D890] flex items-center justify-center font-bold text-xs">
-                        Cụ Tổ
-                      </div>
-                      <div>
-                        <div className="font-bold text-sm text-[#0A5480]">Cụ Khởi Tổ (Đời 1)</div>
-                        <div className="text-[11px] text-[#5B7583]">Năm sinh: ~1850 • Chi Trưởng</div>
-                      </div>
-                    </div>
-                    <span className="px-2.5 py-1 bg-amber-50 text-[#B45309] rounded-full text-[10px] font-bold border border-amber-200">
-                      Thuỷ Tổ
-                    </span>
-                  </div>
-
-                  <div className="pl-6 border-l-2 border-dashed border-[#0E6FA8]/40 space-y-2">
-                    <div className="p-3.5 bg-white rounded-xl border border-[#E1E8EC] shadow-xs flex items-center justify-between">
-                      <div className="flex items-center space-x-3">
-                        <div className="w-8 h-8 rounded-full bg-[#0E6FA8] text-white flex items-center justify-center font-bold text-xs">
-                          Cụ 2
-                        </div>
-                        <div>
-                          <div className="font-bold text-xs text-[#163247]">Cụ Đệ Nhị Thế (Đời 2)</div>
-                          <div className="text-[10px] text-[#5B7583]">Chi Trưởng • 4 Con Trai</div>
-                        </div>
-                      </div>
-                      <span className="px-2 py-0.5 bg-blue-50 text-blue-800 rounded-md text-[10px] font-bold">
-                        Chi Trưởng
-                      </span>
-                    </div>
-
-                    <div className="pl-6 border-l-2 border-dashed border-[#0E6FA8]/40">
-                      <div className="p-3 bg-white rounded-xl border border-[#E1E8EC] shadow-xs flex items-center justify-between">
-                        <div className="flex items-center space-x-2.5">
-                          <div className="w-7 h-7 rounded-full bg-teal-700 text-white flex items-center justify-center font-bold text-[11px]">
-                            Ô.3
-                          </div>
-                          <div>
-                            <div className="font-bold text-xs text-[#163247]">Ông Đệ Tam Thế (Đời 3)</div>
-                            <div className="text-[10px] text-emerald-700 font-semibold">Đang sinh sống • 0912.***.*** (Đã bảo mật)</div>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <div className="space-y-4">
-                <h3 className="text-lg font-bold text-[#0A5480] font-serif">Xem Gia Phả Dễ Dàng Như Xem Bản Đồ</h3>
-                <ul className="space-y-2.5 text-xs text-[#5B7583]">
-                  <li className="flex items-start"><Check className="w-4 h-4 text-emerald-600 mr-2 flex-shrink-0 mt-0.5" /> Phóng to, thu nhỏ mượt mà trên cả điện thoại và máy tính.</li>
-                  <li className="flex items-start"><Check className="w-4 h-4 text-emerald-600 mr-2 flex-shrink-0 mt-0.5" /> Tìm kiếm tên con cháu, xem ảnh thờ, tiểu sử và phối ngẫu.</li>
-                  <li className="flex items-start"><Check className="w-4 h-4 text-emerald-600 mr-2 flex-shrink-0 mt-0.5" /> Xuất file Excel hoặc in ấn gia phả A4/A3 sắc nét.</li>
-                </ul>
-                <a
-                  href="?tenant=demo"
-                  className="inline-flex items-center space-x-1.5 px-4 py-2.5 bg-[#F5E9D6] hover:bg-[#F2C46A]/40 text-[#0A5480] rounded-xl text-xs font-bold border border-[#F2C46A]/60 transition-all"
-                >
-                  <span>Xem Demo Thực Tế</span>
-                  <ArrowRight className="w-3.5 h-3.5" />
-                </a>
-              </div>
-            </div>
-          )}
-
-          {activePreviewTab === 'tomb' && (
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-center">
-              <div className="lg:col-span-2 p-6 bg-[#FBF7EF] rounded-2xl border border-[#F2C46A]/40 space-y-3">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center space-x-2">
-                    <Navigation className="w-4 h-4 text-[#0E6FA8]" />
-                    <span className="text-xs font-bold text-[#0A5480]">Vị trí Lăng Mộ Tổ Tiên (Vệ tinh GPS)</span>
-                  </div>
-                  <span className="text-[11px] bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded font-bold">
-                    Tọa Độ GPS Chuẩn
-                  </span>
-                </div>
-                <div className="p-4 bg-white rounded-xl border border-[#E1E8EC] space-y-2">
-                  <div className="flex items-center justify-between">
-                    <span className="font-bold text-sm text-[#0A5480]">Lăng Mộ Cụ Thủy Tổ</span>
-                    <span className="text-[11px] text-[#5B7583]">Khu Đồng Lăng, Quỳnh Lập</span>
-                  </div>
-                  <p className="text-xs text-[#5B7583]">Tọa độ: 19.234567, 105.789123 • Hướng Nam</p>
-                  <div className="pt-2 flex items-center space-x-2">
-                    <span className="px-3 py-1 bg-blue-50 text-[#0E6FA8] rounded-lg text-xs font-bold flex items-center space-x-1">
-                      <MapPin className="w-3.5 h-3.5 mr-1" /> Chỉ đường Google Maps
-                    </span>
-                  </div>
-                </div>
-              </div>
-              <div className="space-y-4">
-                <h3 className="text-lg font-bold text-[#0A5480] font-serif">Con Cháu Ở Xa Luôn Tìm Được Về Cội Nguồn</h3>
-                <p className="text-xs text-[#5B7583] leading-relaxed">
-                  Lưu trữ tọa độ chính xác từng ngôi mộ kèm hình ảnh bia mộ thực tế. Con cháu chỉ cần bấm nút "Chỉ đường" trên điện thoại là ứng dụng Google Maps sẽ dẫn đường tận nơi.
-                </p>
-              </div>
-            </div>
-          )}
-
-          {activePreviewTab === 'finance' && (
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-center">
-              <div className="lg:col-span-2 p-6 bg-[#FBF7EF] rounded-2xl border border-[#F2C46A]/40 space-y-3">
-                <div className="grid grid-cols-3 gap-2 text-center">
-                  <div className="p-3 bg-white rounded-xl border border-[#E1E8EC]">
-                    <div className="text-[10px] text-[#5B7583] uppercase font-bold">Tổng Thu Niên Khóa</div>
-                    <div className="text-sm font-black text-emerald-700 mt-0.5">85.400.000 đ</div>
-                  </div>
-                  <div className="p-3 bg-white rounded-xl border border-[#E1E8EC]">
-                    <div className="text-[10px] text-[#5B7583] uppercase font-bold">Tổng Chi Tế Tự</div>
-                    <div className="text-sm font-black text-rose-700 mt-0.5">32.150.000 đ</div>
-                  </div>
-                  <div className="p-3 bg-[#F5E9D6] rounded-xl border border-[#F2C46A]">
-                    <div className="text-[10px] text-[#B45309] uppercase font-bold">Tồn Quỹ Họ</div>
-                    <div className="text-sm font-black text-[#0A5480] mt-0.5">53.250.000 đ</div>
-                  </div>
-                </div>
-                <div className="p-3 bg-white rounded-xl border border-[#E1E8EC] flex items-center justify-between text-xs">
-                  <div>
-                    <span className="font-bold text-[#163247]">Công đức tu bổ nhà thờ họ</span>
-                    <span className="text-[11px] text-[#5B7583] block">Gia đình anh Nguyễn Duy Bình • Kèm ảnh biên lai</span>
-                  </div>
-                  <span className="font-bold text-emerald-700">+5.000.000 đ</span>
-                </div>
-              </div>
-              <div className="space-y-4">
-                <h3 className="text-lg font-bold text-[#0A5480] font-serif">Minh Bạch Thu Chi — Gắn Kết Dòng Tộc</h3>
-                <p className="text-xs text-[#5B7583] leading-relaxed">
-                  Phân công người làm Bãi biện theo từng năm tế họ. Cho phép chụp ảnh hóa đơn, biên nhận đính kèm công khai để toàn thể con cháu đều theo dõi được.
-                </p>
-              </div>
-            </div>
-          )}
-
-          {activePreviewTab === 'zns' && (
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-center">
-              <div className="lg:col-span-2 p-6 bg-[#FBF7EF] rounded-2xl border border-[#F2C46A]/40 space-y-3">
-                <div className="p-4 bg-white rounded-2xl border border-[#0E6FA8]/30 shadow-md space-y-2.5">
-                  <div className="flex items-center space-x-2 border-b border-slate-100 pb-2">
-                    <div className="w-7 h-7 rounded-full bg-blue-600 text-white flex items-center justify-center font-bold text-xs">
-                      Z
-                    </div>
-                    <div>
-                      <div className="font-bold text-xs text-blue-900">Zalo Official Account • Thông Báo Dòng Họ</div>
-                      <div className="text-[10px] text-slate-500">Tin nhắn ZNS thương hiệu dòng tộc</div>
-                    </div>
-                  </div>
-                  <div className="text-xs text-[#163247] space-y-1 bg-slate-50 p-3 rounded-xl">
-                    <p className="font-bold text-[#0A5480]">KÍNH GỬI: BÁC NGUYỄN DUY BÌNH</p>
-                    <p className="text-[11px] text-slate-700">
-                      Ban liên lạc dòng họ trân trọng kính mời gia đình về dự Lễ Giỗ Tổ thường niên vào ngày 15 tháng Chạp tại Từ đường dòng họ.
-                    </p>
-                  </div>
-                </div>
-              </div>
-              <div className="space-y-4">
-                <h3 className="text-lg font-bold text-[#0A5480] font-serif">Gửi Tin Tức Thời Đến Hàng Trăm Con Cháu</h3>
-                <p className="text-xs text-[#5B7583] leading-relaxed">
-                  Không còn phải gọi điện thủ công từng nhà. Hệ thống tự động lọc số điện thoại từ cây gia phả và gửi tin nhắn Zalo thông báo nhắc giỗ, thu quỹ họ chỉ trong 1 click với cước chỉ 400 đ/tin.
-                </p>
-              </div>
-            </div>
-          )}
-        </div>
-      </section>
-
-      {/* Core Features Grid */}
-      <section id="features" className="py-16 px-4 sm:px-8 max-w-6xl mx-auto space-y-12">
-        <div className="text-center space-y-2">
-          <span className="text-xs font-extrabold text-[#B45309] uppercase tracking-widest bg-[#F5E9D6] px-3 py-1 rounded-full border border-[#F2C46A]/50">
-            Hệ Sinh Thái Toàn Diện
-          </span>
-          <h2 className="text-2xl sm:text-4xl font-extrabold text-[#0A5480] font-serif">
-            Đầy Đủ Nghiệp Vụ Chuẩn Mực Cho Dòng Tộc
-          </h2>
-          <p className="text-xs sm:text-sm text-[#5B7583] max-w-2xl mx-auto">
-            Được nghiên cứu và thiết kế chuyên sâu dựa trên đúng thuần phong mỹ tục và nếp sống gia tộc truyền thống của người Việt.
-          </p>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {coreFeatures.map((feat, idx) => {
-            const Icon = feat.icon;
-            return (
-              <div
-                key={idx}
-                className="bg-white p-6 rounded-2xl border border-[#E1E8EC] shadow-xs hover:shadow-md hover:border-[#0E6FA8]/40 transition-all space-y-3 flex flex-col justify-between"
-              >
-                <div className="space-y-3">
-                  <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-[#F5E9D6] to-[#F2C46A]/40 text-[#0A5480] flex items-center justify-center shadow-xs border border-[#F2C46A]/30">
-                    <Icon className="w-6 h-6" />
-                  </div>
-                  <h3 className="text-base font-bold text-[#0A5480] font-serif">{feat.title}</h3>
-                  <p className="text-xs text-[#5B7583] leading-relaxed">{feat.desc}</p>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      </section>
-
-      {/* RBAC 5-Level Security Section */}
-      <section id="rbac" className="py-16 px-4 sm:px-8 bg-[#F5E9D6]/40 border-y border-[#E1E8EC]">
-        <div className="max-w-6xl mx-auto space-y-12">
-          <div className="text-center space-y-2">
-            <span className="text-xs font-extrabold text-[#0A5480] uppercase tracking-widest bg-white px-3 py-1 rounded-full border border-[#0E6FA8]/30">
-              Ma Trận Phân Quyền 5 Cấp (RBAC)
-            </span>
-            <h2 className="text-2xl sm:text-4xl font-extrabold text-[#0A5480] font-serif">
-              Bảo Mật Quyền Riêng Tư & Phân Quyền Rõ Ràng
-            </h2>
-            <p className="text-xs sm:text-sm text-[#5B7583] max-w-2xl mx-auto">
-              Phân tách minh bạch giữa người xem thông thường, con cháu đã xác thực, người làm bãi biện và ban quản trị dòng tộc.
-            </p>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-4">
-            {rbacRoles.map((item, idx) => {
-              const Icon = item.icon;
-              return (
-                <div
-                  key={idx}
-                  className="bg-white p-5 rounded-2xl border border-[#E1E8EC] shadow-xs hover:border-[#0E6FA8] hover:shadow-md transition-all flex flex-col justify-between space-y-4"
-                >
-                  <div className="space-y-2.5">
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs font-black text-[#B45309] font-mono">{item.step}</span>
-                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${item.color}`}>
-                        {item.tag}
-                      </span>
-                    </div>
-                    <div className="w-10 h-10 rounded-xl bg-[#FBF7EF] text-[#0A5480] flex items-center justify-center border border-[#E1E8EC]">
-                      <Icon className="w-5 h-5" />
-                    </div>
-                    <h3 className="font-bold text-sm text-[#0A5480] font-serif">{item.role}</h3>
-                    <p className="text-xs text-[#5B7583] leading-relaxed">{item.desc}</p>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      </section>
-
-      {/* Pricing Matrix Section */}
-      <section id="pricing" className="py-20 px-4 sm:px-8 max-w-6xl mx-auto space-y-12">
-        <div className="text-center space-y-2">
-          <span className="text-xs font-extrabold text-[#B45309] uppercase tracking-widest bg-[#F5E9D6] px-3 py-1 rounded-full border border-[#F2C46A]/50">
-            Bảng Giá Dịch Vụ Minh Bạch
-          </span>
-          <h2 className="text-2xl sm:text-4xl font-extrabold text-[#0A5480] font-serif">
-            Lựa Chọn Gói Dịch Vụ Phù Hợp Cho Dòng Họ
-          </h2>
-          <p className="text-xs sm:text-sm text-[#5B7583] max-w-2xl mx-auto">
-            Không phát sinh phụ phí ẩn. Miễn phí nâng cấp tính năng mới và bảo lưu dữ liệu an toàn trên hệ thống máy chủ 50 GB NVMe.
-          </p>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          {pricingPlans.map((plan) => (
-            <div
-              key={plan.id}
-              className={`relative rounded-2xl p-6 flex flex-col justify-between transition-all bg-white ${
-                plan.isPopular
-                  ? 'border-2 border-[#0E6FA8] shadow-xl ring-4 ring-[#0E6FA8]/10'
-                  : 'border border-[#E1E8EC] shadow-xs hover:border-[#0E6FA8]/40 hover:shadow-md'
-              }`}
-            >
-              {plan.badge && (
-                <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-0.5 bg-[#0E6FA8] text-[#F7D890] text-[10px] font-black uppercase rounded-full tracking-wider shadow-md border border-[#F2C46A]/50">
-                  {plan.badge}
-                </div>
-              )}
-
-              <div className="space-y-4">
-                <div>
-                  <h3 className="text-lg font-bold text-[#0A5480] font-serif">{plan.name}</h3>
-                  <p className="text-xs text-[#5B7583] mt-0.5">{plan.sub}</p>
-                </div>
-
-                <div className="flex items-baseline space-x-1 border-b border-[#E1E8EC] pb-4">
-                  <span className="text-2xl sm:text-3xl font-black text-[#0A5480]">{plan.price}</span>
-                  <span className="text-xs font-semibold text-[#5B7583]">{plan.period}</span>
-                </div>
-
-                <ul className="space-y-2.5 text-xs text-[#163247]">
-                  {plan.features.map((feat, i) => (
-                    <li key={i} className="flex items-start space-x-2">
-                      <Check className="w-4 h-4 text-[#0E6FA8] flex-shrink-0 mt-0.5" />
-                      <span>{feat}</span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-
-              <div className="pt-6">
-                <button
-                  onClick={() => openRegister(plan.id)}
-                  className={`w-full py-2.5 rounded-xl font-bold text-xs transition-all ${
-                    plan.isPopular
-                      ? 'bg-gradient-to-r from-[#0E6FA8] to-[#0A5480] hover:from-[#1C8FD6] hover:to-[#0E6FA8] text-white shadow-md'
-                      : 'bg-[#F5E9D6] hover:bg-[#F2C46A]/40 text-[#0A5480] border border-[#F2C46A]/50'
-                  }`}
-                >
-                  Đăng Ký Gói Này
-                </button>
-              </div>
+      {/* ── STATS BAR ────────────────────────────────────────── */}
+      <section className="bg-primary-dark">
+        <div className="max-w-5xl mx-auto px-4 py-10 grid grid-cols-2 md:grid-cols-4 gap-8 text-center">
+          {[
+            { num: '50+', label: 'Dòng họ tin dùng' },
+            { num: '10.000+', label: 'Thành viên gia phả' },
+            { num: '99.9%', label: 'Uptime máy chủ' },
+            { num: '24/7', label: 'Hỗ trợ kỹ thuật' },
+          ].map((s, i) => (
+            <div key={i}>
+              <div className="text-3xl sm:text-4xl font-black text-secondary font-serif">{s.num}</div>
+              <div className="text-sm text-white/70 mt-1 font-medium">{s.label}</div>
             </div>
           ))}
         </div>
       </section>
 
-      {/* Expert Digitization & Consultation Banner */}
-      <section className="py-12 px-4 sm:px-8 max-w-6xl mx-auto">
-        <div className="bg-gradient-to-r from-[#0A5480] via-[#0E6FA8] to-[#0A5480] rounded-2xl p-8 text-white shadow-xl border border-[#F2C46A]/40 flex flex-col sm:flex-row items-center justify-between gap-6 text-center sm:text-left">
-          <div className="space-y-2">
-            <div className="inline-flex items-center space-x-1.5 px-3 py-1 bg-white/10 rounded-full text-[11px] font-bold text-[#F7D890] uppercase border border-white/20">
-              <HeartHandshake className="w-3.5 h-3.5" />
-              <span>Dịch Vụ Hỗ Trợ Chuyên Sâu</span>
-            </div>
-            <h2 className="text-xl sm:text-2xl font-bold font-serif text-[#F7D890]">
-              Bạn Cần Hỗ Trợ Số Hóa Gia Phả Trọn Gói?
+      {/* ── FEATURES ─────────────────────────────────────────── */}
+      <section id="features" className="py-20 sm:py-28 bg-white">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center mb-16">
+            <h2 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold text-primary-dark font-serif">
+              Hệ Sinh Thái Toàn Diện
             </h2>
-            <p className="text-xs text-slate-200 max-w-xl leading-relaxed">
-              Đội ngũ chuyên gia của chúng tôi nhận dịch phả ký chữ Hán Nôm cổ, phục chế ảnh thờ tiền nhân và hỗ trợ nhập liệu cây gia phả trọn gói theo yêu cầu của dòng họ.
+            <p className="mt-4 text-lg text-gray-500 max-w-2xl mx-auto">
+              6 công cụ cốt lõi được thiết kế chuyên biệt cho phong tục gia tộc Việt Nam
             </p>
           </div>
-          <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
-            <a
-              href="tel:0912345678"
-              className="px-5 py-3 bg-[#F2C46A] hover:bg-[#F7D890] text-[#0A5480] font-black text-xs rounded-xl shadow-md flex items-center justify-center space-x-2 transition-all whitespace-nowrap"
-            >
-              <Phone className="w-4 h-4" />
-              <span>Hotline: 0912.345.678</span>
-            </a>
-            <a
-              href="https://zalo.me"
-              target="_blank"
-              rel="noreferrer"
-              className="px-5 py-3 bg-white/10 hover:bg-white/20 text-white font-bold text-xs rounded-xl border border-white/20 flex items-center justify-center space-x-2 transition-all whitespace-nowrap"
-            >
-              <ExternalLink className="w-4 h-4" />
-              <span>Tư Vấn Qua Zalo</span>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-px bg-gray-200 rounded-3xl overflow-hidden border border-gray-200 shadow-lg">
+            {features.map((f, i) => {
+              const Icon = f.icon;
+              return (
+                <div key={i} className="bg-white p-8 sm:p-10 hover:bg-sand-light/50 transition-colors">
+                  <div className="w-14 h-14 rounded-2xl bg-sand flex items-center justify-center text-primary mb-5">
+                    <Icon className="w-7 h-7" />
+                  </div>
+                  <h3 className="text-xl font-bold text-primary-dark font-serif mb-2">{f.title}</h3>
+                  <p className="text-base text-gray-500 leading-relaxed">{f.desc}</p>
+                </div>
+              );
+            })}
+          </div>
+
+          <div className="text-center mt-14">
+            <a href="https://hotrandinh.com" target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 px-8 py-4 border-2 border-primary-dark text-primary-dark rounded-full font-bold text-base hover:bg-primary-dark hover:text-white transition-all shadow-sm">
+              Trải Nghiệm Demo Thực Tế <ExternalLink className="w-4 h-4" />
             </a>
           </div>
         </div>
       </section>
 
-      {/* Footer */}
-      <footer className="footer bg-white border-t border-[#E1E8EC]">
-        <OceanScene variant="pattern" className="footer-pattern" />
-        <div className="footer-inner max-w-6xl mx-auto px-4 py-8 flex flex-col md:flex-row items-center justify-between gap-6">
-          <div className="flex items-center space-x-3">
-            <div className="w-10 h-10 rounded-full bg-[#0A5480] flex items-center justify-center text-[#F7D890] font-bold text-sm">
-              GT
-            </div>
-            <div>
-              <p className="font-bold text-[#0A5480] font-serif text-base">Gia Tộc Online (giatoc.online)</p>
-              <p className="text-xs text-[#5B7583]">Nền tảng chuyển đổi số dòng họ • "Mộc bản thủy nguyên"</p>
-            </div>
+      {/* ── PRICING ──────────────────────────────────────────── */}
+      <section id="pricing" className="py-20 sm:py-28 bg-sand-light">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center mb-16">
+            <h2 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold text-primary-dark font-serif">
+              Bảng Giá Minh Bạch
+            </h2>
+            <p className="mt-4 text-lg text-gray-500 max-w-2xl mx-auto">
+              Không phụ phí ẩn · Miễn phí nâng cấp · Bảo lưu dữ liệu trọn đời
+            </p>
           </div>
 
-          <div className="flex items-center space-x-6 text-xs font-semibold text-[#5B7583]">
-            <Link to="/huong-dan-thiet-lap" className="hover:text-[#0E6FA8]">Hướng Dẫn Vận Hành</Link>
-            <Link to="/super-admin" className="hover:text-[#0E6FA8]">Platform Admin</Link>
-            <a href="tel:0912345678" className="hover:text-[#0E6FA8]">Hotline: 0912.345.678</a>
+          {/* Pricing Table */}
+          <div className="overflow-x-auto pb-4">
+            <table className="w-full min-w-[900px] bg-white rounded-2xl border border-gray-200 shadow-lg border-separate" style={{ borderSpacing: 0 }}>
+              {/* Header */}
+              <thead>
+                <tr>
+                  <th className="p-6 text-left text-sm font-bold text-gray-400 uppercase tracking-wider border-b-2 border-gray-200 rounded-tl-2xl bg-white">So sánh</th>
+                  {pricingPlans.map((plan) => (
+                    <th key={plan.id} className={`p-6 text-center border-b-2 border-gray-200 ${plan.isPopular ? 'bg-primary-dark text-white' : 'bg-white'} ${plan.id === 'unlimited' ? 'rounded-tr-2xl' : ''}`}>
+                      <span className={`inline-block px-3 py-1 text-[11px] font-bold uppercase tracking-wider rounded-full mb-3 ${plan.isPopular ? 'bg-secondary text-primary-dark' : plan.badgeColor + ' text-white'}`}>{plan.badge}</span>
+                      <div className={`text-2xl font-bold font-serif ${plan.isPopular ? 'text-white' : 'text-primary-dark'}`}>{plan.name}</div>
+                      <div className={`text-xs mt-1 ${plan.isPopular ? 'text-white/70' : 'text-gray-400'}`}>{plan.sub}</div>
+                      <div className="mt-4 mb-4">
+                        <span className={`text-3xl font-black ${plan.isPopular ? 'text-secondary' : 'text-primary-dark'}`}>{plan.price}</span>
+                        <span className={`text-sm ml-1 ${plan.isPopular ? 'text-white/60' : 'text-gray-400'}`}>{plan.period}</span>
+                      </div>
+                      <button onClick={() => openRegister(plan.id)} className={`w-full py-3 rounded-lg font-bold text-sm transition-all ${plan.isPopular ? 'bg-secondary hover:bg-secondary-light text-primary-dark shadow-md' : 'bg-sand hover:bg-secondary/30 text-primary-dark'}`}>
+                        Đăng Ký Ngay
+                      </button>
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {comparisonRows.map((row, idx) => {
+                  if (row.divider) {
+                    return (
+                      <tr key={idx}>
+                        <td colSpan={5} className="px-6 py-3 bg-sand text-xs font-extrabold text-amber-700 uppercase tracking-widest border-t border-gray-200">{row.label}</td>
+                      </tr>
+                    );
+                  }
+                  const Icon = row.icon;
+                  return (
+                    <tr key={idx} className="hover:bg-gray-50/50 transition-colors">
+                      <td className="px-6 py-4 border-t border-gray-100">
+                        <div className="flex items-center gap-3">
+                          <Icon className="w-5 h-5 text-primary shrink-0" />
+                          <span className="text-sm font-semibold text-navy-900">{row.label}</span>
+                        </div>
+                      </td>
+                      {pricingPlans.map((plan) => (
+                        <td key={plan.id} className={`px-6 py-4 text-center border-t border-gray-100 ${plan.isPopular ? 'bg-primary/[0.02]' : ''}`}>
+                          {row.type === 'value' ? (
+                            <span className={`text-sm font-bold ${plan.isPopular ? 'text-primary font-extrabold' : 'text-navy-900'}`}>{plan[row.key]}</span>
+                          ) : (
+                            plan.features[row.key]
+                              ? <Check className="w-5 h-5 text-emerald-500 mx-auto" />
+                              : <Minus className="w-4 h-4 text-gray-300 mx-auto" />
+                          )}
+                        </td>
+                      ))}
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
           </div>
         </div>
+      </section>
 
-        <div className="footer-bottom border-t border-[#E1E8EC] py-4 text-center text-xs text-[#5B7583]">
-          <p>&copy; 2026 giatoc.online. Bản quyền thuộc về Nền tảng Quản trị Gia tộc Đa Dòng họ.</p>
+      {/* ── CTA BANNER ───────────────────────────────────────── */}
+      <section className="bg-primary-dark py-20 sm:py-24">
+        <div className="max-w-3xl mx-auto px-4 text-center space-y-8">
+          <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold font-serif text-white leading-tight">
+            Cần Hỗ Trợ<br /><span className="text-secondary">Số Hóa Trọn Gói?</span>
+          </h2>
+          <p className="text-lg text-white/70 leading-relaxed">
+            Đội ngũ chuyên gia nhận dịch phả ký chữ Hán Nôm cổ, phục chế ảnh thờ tiền nhân và nhập liệu cây gia phả trọn gói theo yêu cầu.
+          </p>
+          <div className="flex flex-col sm:flex-row justify-center gap-4 pt-4">
+            <a href="tel:0912345678" className="inline-flex items-center justify-center gap-2 px-8 py-4 bg-secondary hover:bg-secondary-light text-primary-dark font-black text-lg rounded-xl shadow-lg transition-all">
+              <Phone className="w-5 h-5" /> 0912.345.678
+            </a>
+            <a href="https://zalo.me" target="_blank" rel="noreferrer" className="inline-flex items-center justify-center gap-2 px-8 py-4 bg-white/10 hover:bg-white/20 text-white font-bold text-lg rounded-xl border border-white/20 transition-all">
+              <MessageSquare className="w-5 h-5" /> Tư Vấn Qua Zalo
+            </a>
+          </div>
+        </div>
+      </section>
+
+      {/* ── FOOTER ───────────────────────────────────────────── */}
+      <footer className="bg-navy-900 text-white/50 py-10">
+        <div className="max-w-7xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-4 text-sm">
+          <div className="font-serif font-bold text-lg text-secondary">Gia Tộc Online</div>
+          <div>&copy; {new Date().getFullYear()} giatoc.online — Nền tảng Quản trị Gia tộc Đa Dòng họ.</div>
         </div>
       </footer>
 
