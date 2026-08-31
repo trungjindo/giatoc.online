@@ -1,0 +1,58 @@
+{
+    email admin@giatoc.online
+    on_demand_tls {
+        ask http://php-fpm:9000/api/platform_tenants.php?action=verify_domain
+        interval 2m
+        burst 5
+    }
+}
+
+# 1. Cổng Portal chính & Wildcard Subdomain cho từng dòng họ
+giatoc.online, www.giatoc.online, *.giatoc.online {
+    root * /var/www/html
+    encode zstd gzip
+
+    # Xử lý PHP API
+    @php {
+        path /api/*
+    }
+    reverse_proxy @php php-fpm:9000 {
+        transport fastcgi {
+            split .php
+        }
+    }
+
+    # Static assets & SPA React Router Fallback
+    try_files {path} /index.html
+    file_server
+
+    # Security Headers
+    header {
+        X-Content-Type-Options nosniff
+        X-Frame-Options SAMEORIGIN
+        Referrer-Policy strict-origin-when-cross-origin
+        Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
+    }
+}
+
+# 2. Custom Domain của khách hàng mua gói Đại Tộc (hotrandinh.com, ...)
+:443 {
+    tls {
+        on_demand
+    }
+
+    root * /var/www/html
+    encode zstd gzip
+
+    @php {
+        path /api/*
+    }
+    reverse_proxy @php php-fpm:9000 {
+        transport fastcgi {
+            split .php
+        }
+    }
+
+    try_files {path} /index.html
+    file_server
+}

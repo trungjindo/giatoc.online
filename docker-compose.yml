@@ -1,0 +1,57 @@
+version: '3.8'
+
+services:
+  caddy:
+    image: caddy:2-alpine
+    container_name: giatoc_caddy
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile
+      - caddy_data:/data
+      - caddy_config:/config
+      - ./dist:/var/www/html:ro
+      - ./api:/var/www/html/api:ro
+      - ./storage:/var/www/html/storage
+    depends_on:
+      - php-fpm
+      - mysql
+
+  php-fpm:
+    image: php:8.2-fpm-alpine
+    container_name: giatoc_php
+    restart: unless-stopped
+    environment:
+      - DB_HOST=mysql
+      - DB_NAME=giatoc_saas
+      - DB_USER=giatoc_user
+      - DB_PASS=${DB_PASSWORD:-SuperSecurePass2026!Antigravity}
+      - GEMINI_API_KEY=${GEMINI_API_KEY:-}
+    volumes:
+      - ./dist:/var/www/html
+      - ./api:/var/www/html/api
+      - ./storage:/var/www/html/storage
+    depends_on:
+      - mysql
+
+  mysql:
+    image: mysql:8.0
+    container_name: giatoc_mysql
+    restart: unless-stopped
+    command: --default-authentication-plugin=mysql_native_password --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-RootSecurePass2026!Antigravity}
+      MYSQL_DATABASE: giatoc_saas
+      MYSQL_USER: giatoc_user
+      MYSQL_PASSWORD: ${DB_PASSWORD:-SuperSecurePass2026!Antigravity}
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./api/schema.sql:/docker-entrypoint-initdb.d/01_schema.sql:ro
+      - ./api/migration_multi_tenant.sql:/docker-entrypoint-initdb.d/02_migration.sql:ro
+
+volumes:
+  caddy_data:
+  caddy_config:
+  mysql_data:
