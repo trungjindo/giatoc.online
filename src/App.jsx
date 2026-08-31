@@ -24,6 +24,7 @@ import TombMapPage from './pages/TombMapPage';
 import AssetsPublicPage from './pages/AssetsPublicPage';
 import Login from './pages/Login';
 import AdminDashboard from './pages/AdminDashboard';
+import AdminPortalPage from './pages/AdminPortalPage';
 import FamilyVerifyGate from './components/FamilyVerifyGate';
 
 // Các trang nền tảng SaaS giatoc.online
@@ -188,7 +189,9 @@ function App() {
           <Route path="/tin-tuc" element={<NewsGallery />} />
           <Route path="/thu-vien" element={<Gallery />} />
           <Route path="/login" element={<Login />} />
-          <Route path="/admin" element={<AdminDashboard />} />
+          <Route path="/admin" element={<AdminPortalPage />} />
+          <Route path="/portal-admin" element={<AdminPortalPage />} />
+          <Route path="/quan-tri" element={<AdminPortalPage />} />
           <Route path="/portal" element={<PortalLandingPage />} />
           <Route path="/super-admin" element={<PlatformSuperAdminPage />} />
           <Route path="/huong-dan-thiet-lap" element={<ClanSetupGuidePage />} />

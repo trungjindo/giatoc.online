@@ -1,0 +1,188 @@
+{
+  "version": "2.0.0",
+  "template": "hotrandinh-style",
+  "siteSettings": {
+    "name": "Dòng Họ Trần Đình",
+    "branch": "Chi Trưởng • Phái Nhất Tiên Điền",
+    "slug": "hotrandinh",
+    "customDomain": "hotrandinh.com",
+    "plan": "pro",
+    "primaryColor": "#0F3B4A",
+    "accentColor": "#C79A2E",
+    "motto": "Mộc bản thủy nguyên — Cây có cội, nước có nguồn",
+    "ancestralHallAddress": "Xã Nghi Xuân, Tỉnh Hà Tĩnh",
+    "themePreset": "classic",
+    "features": {
+      "familyTree": true,
+      "tombMap": true,
+      "finances": true,
+      "digitalAltar": true,
+      "newsYearbook": true,
+      "privacyGatekeeper": true
+    }
+  },
+  "members": [
+    {
+      "id": 1,
+      "fullName": "Trần Đình Văn",
+      "nickname": "Cụ Thủy Tổ Khai Khái",
+      "gender": "male",
+      "generation": 1,
+      "birthDate": "1820",
+      "deathDate": "1895",
+      "lunarDeathDate": "15/08 Âm Lịch",
+      "role": "👑 Thủy Tổ",
+      "branch": "Toàn Tộc",
+      "phone": "0912888678",
+      "tomb": "Khu Lăng Mộ Tổ Núi Rồng (GPS: 20.4382, 105.9123)",
+      "parentIds": [],
+      "bio": "Khởi thủy khai hoang lập ấp, đỗ Tú tài triều Nguyễn, khai sáng nền móng từ đường đại tộc."
+    },
+    {
+      "id": 2,
+      "fullName": "Trần Đình Toàn",
+      "nickname": "Cụ Toàn",
+      "gender": "male",
+      "generation": 2,
+      "birthDate": "1852",
+      "deathDate": "1920",
+      "lunarDeathDate": "03/03 Âm Lịch",
+      "role": "Trưởng Chi 1",
+      "branch": "Chi 1",
+      "phone": "0983555123",
+      "tomb": "Nghĩa Trang Dòng Họ Khu A, Mộ số 12",
+      "parentIds": [1],
+      "bio": "Tiếp quản từ đường chi trưởng, giữ gìn 3 tập gia phả cổ chữ Nho."
+    },
+    {
+      "id": 3,
+      "fullName": "Trần Đình Đức",
+      "nickname": "Cụ Đức",
+      "gender": "male",
+      "generation": 2,
+      "birthDate": "1856",
+      "deathDate": "1930",
+      "lunarDeathDate": "19/11 Âm Lịch",
+      "role": "Trưởng Chi 2",
+      "branch": "Chi 2",
+      "phone": "0904333789",
+      "tomb": "Khu Lăng Mộ Chi 2 Cánh Đồng Mới",
+      "parentIds": [1],
+      "bio": "Phát triển nghề truyền thống, lập quỹ khuyến học đầu tiên của dòng họ."
+    },
+    {
+      "id": 4,
+      "fullName": "Trần Đình An",
+      "nickname": "Ông An",
+      "gender": "male",
+      "generation": 3,
+      "birthDate": "1885",
+      "deathDate": "1955",
+      "lunarDeathDate": "10/06 Âm Lịch",
+      "role": "Chi 1 Đời 3",
+      "branch": "Chi 1",
+      "phone": "0918111222",
+      "tomb": "Nghĩa trang liệt sĩ / Di tích địa phương",
+      "parentIds": [2],
+      "bio": "Tham gia kháng chiến, để lại nhiều thư tịch lịch sử quý báu."
+    },
+    {
+      "id": 5,
+      "fullName": "Trần Đình Bình",
+      "nickname": "Ông Bình",
+      "gender": "male",
+      "generation": 3,
+      "birthDate": "1890",
+      "deathDate": "1962",
+      "lunarDeathDate": "02/09 Âm Lịch",
+      "role": "Chi 1 Đời 3",
+      "branch": "Chi 1",
+      "phone": "0977444999",
+      "tomb": "Nghĩa trang quê nhà",
+      "parentIds": [2],
+      "bio": "Thầy giáo dạy chữ Quốc ngữ đầu tiên trong làng, được con cháu kính ngưỡng."
+    },
+    {
+      "id": 6,
+      "fullName": "Trần Đình Cường",
+      "nickname": "Ông Cường",
+      "gender": "male",
+      "generation": 3,
+      "birthDate": "1895",
+      "deathDate": "1970",
+      "lunarDeathDate": "14/04 Âm Lịch",
+      "role": "Chi 2 Đời 3",
+      "branch": "Chi 2",
+      "phone": "0936222333",
+      "tomb": "Nghĩa trang xã",
+      "parentIds": [3],
+      "bio": "Lập nghiệp phương Nam, xây dựng mối liên lạc dòng họ với các chi nhánh xa."
+    },
+    {
+      "id": 7,
+      "fullName": "Trần Đình Trung",
+      "nickname": "Anh Trung",
+      "gender": "male",
+      "generation": 4,
+      "birthDate": "1985",
+      "deathDate": null,
+      "lunarDeathDate": "",
+      "role": "Trưởng Ban Công Nghệ",
+      "branch": "Chi 1",
+      "phone": "0912345678",
+      "tomb": "",
+      "parentIds": [4],
+      "bio": "Kỹ sư công nghệ, phụ trách số hóa gia phả lên giatoc.online."
+    },
+    {
+      "id": 8,
+      "fullName": "Trần Thị Mai",
+      "nickname": "Chị Mai",
+      "gender": "female",
+      "generation": 4,
+      "birthDate": "1990",
+      "deathDate": null,
+      "lunarDeathDate": "",
+      "role": "Thủ Quỹ Dòng Họ",
+      "branch": "Chi 1",
+      "phone": "0988777666",
+      "tomb": "",
+      "parentIds": [4],
+      "bio": "Phụ trách quản lý sổ quỹ thu chi và vận động công đức xây dựng từ đường."
+    }
+  ],
+  "posts": [
+    {
+      "id": 1,
+      "title": "Thông Báo Lễ Giỗ Tổ Thường Niên Năm 2026",
+      "category": "Sự Kiện",
+      "publishedAt": "2026-08-15",
+      "summary": "Ban liên lạc dòng họ trân trọng kính mời toàn thể con cháu nội ngoại về dự lễ giỗ cụ Thủy Tổ tại nhà thờ họ.",
+      "content": "<p>Kính thưa toàn thể bà con cô bác và con cháu trong họ...</p>"
+    },
+    {
+      "id": 2,
+      "title": "Báo Cáo Tiến Độ Tôn Tạo Nhà Thờ Chi Trưởng Tiên Điền",
+      "category": "Từ Đường",
+      "publishedAt": "2026-07-20",
+      "summary": "Công trình tu bổ hậu cung và tường bao đã hoàn thành 85% tiến độ.",
+      "content": "<p>Nhờ sự đồng lòng công đức của con cháu gần xa, công trình đang về đích đúng hẹn...</p>"
+    }
+  ],
+  "albums": [
+    {
+      "id": 1,
+      "title": "Lễ Giỗ Tổ Năm 2025",
+      "photosCount": 24,
+      "coverUrl": "/media/brand/logo-icon.png",
+      "date": "15/08 Âm Lịch"
+    },
+    {
+      "id": 2,
+      "title": "Di Tích Nhà Thờ Họ & Bia Ký Cổ",
+      "photosCount": 16,
+      "coverUrl": "/media/brand/logo-icon.png",
+      "date": "Di Sản"
+    }
+  ]
+}
