@@ -78,12 +78,29 @@ $milestones = [
 ];
 
 try {
+  // Đảm bảo bảng tenant_renewal_notifications tồn tại
+  $pdo->exec("
+    CREATE TABLE IF NOT EXISTS tenant_renewal_notifications (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      tenant_id INT NOT NULL,
+      milestone ENUM('30_days', '15_days', '7_days', '1_day', 'expired', 'grace_15_readonly') NOT NULL,
+      channel ENUM('zalo_zns', 'email', 'system_banner') NOT NULL,
+      recipient VARCHAR(150) NOT NULL,
+      message_title VARCHAR(255) NOT NULL,
+      status ENUM('sent', 'delivered', 'failed') NOT NULL DEFAULT 'sent',
+      payload JSON NULL,
+      sent_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      INDEX idx_tenant_milestone (tenant_id, milestone, sent_at),
+      INDEX idx_sent_at (sent_at)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+  ");
+
   // Lấy danh sách tenant đang cần kiểm tra cảnh báo
   $query = "
     SELECT t.id, t.slug, t.name, t.plan, t.status, t.expires_at,
            DATEDIFF(t.expires_at, NOW()) AS days_left,
-           (SELECT phone FROM users WHERE tenant_id = t.id AND role = 'admin' ORDER BY id ASC LIMIT 1) AS admin_phone,
-           (SELECT email FROM users WHERE tenant_id = t.id AND role = 'admin' ORDER BY id ASC LIMIT 1) AS admin_email,
+           (SELECT admin_phone FROM orders WHERE tenant_id = t.id ORDER BY id DESC LIMIT 1) AS admin_phone,
+           (SELECT admin_email FROM orders WHERE tenant_id = t.id ORDER BY id DESC LIMIT 1) AS admin_email,
            (SELECT full_name FROM users WHERE tenant_id = t.id AND role = 'admin' ORDER BY id ASC LIMIT 1) AS admin_name
     FROM tenants t
     WHERE t.status != 'suspended' AND t.expires_at IS NOT NULL
