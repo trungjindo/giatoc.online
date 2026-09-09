@@ -31,6 +31,7 @@ import FamilyVerifyGate from './components/FamilyVerifyGate';
 import PortalLandingPage from './pages/PortalLandingPage';
 import PlatformSuperAdminPage from './pages/PlatformSuperAdminPage';
 import ClanSetupGuidePage from './pages/ClanSetupGuidePage';
+import DemoSandboxPage from './pages/DemoSandboxPage';
 
 function FamilyOnly({ pageName, children }) {
   const { isFamilyVerified } = useContext(AppContext);
@@ -86,6 +87,9 @@ function App() {
   }
 
   // Các trang độc lập của nền tảng SaaS
+  if (location.pathname === '/demo' || host === 'demo.giatoc.online' || searchParams.get('mode') === 'demo') {
+    return <DemoSandboxPage />;
+  }
   if (location.pathname === '/super-admin') {
     return <PlatformSuperAdminPage />;
   }

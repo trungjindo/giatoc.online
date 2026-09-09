@@ -223,4 +223,73 @@ if ($action === 'reset_admin_password' && $_SERVER['REQUEST_METHOD'] === 'POST')
   }
 }
 
+// ---------------------------------------------------------------------------
+// 6. Thống kê Toàn Sàn, Biểu đồ Doanh thu & Cảnh báo gia hạn (Analytics)
+// ---------------------------------------------------------------------------
+if ($action === 'analytics') {
+  try {
+    // 1. Tổng quan Doanh thu toàn sàn
+    $stmt = $pdo->query("SELECT COALESCE(SUM(amount), 0) AS total_revenue FROM orders WHERE payment_status = 'paid'");
+    $totalRevenue = (float)$stmt->fetchColumn();
+
+    // Doanh thu theo tháng (12 tháng gần nhất)
+    $stmt = $pdo->query(
+      "SELECT DATE_FORMAT(paid_at, '%m/%Y') AS month_label,
+              SUM(amount) AS monthly_revenue,
+              COUNT(id) AS order_count
+       FROM orders
+       WHERE payment_status = 'paid' AND paid_at >= DATE_SUB(NOW(), INTERVAL 12 MONTH)
+       GROUP BY DATE_FORMAT(paid_at, '%m/%Y')
+       ORDER BY MIN(paid_at) ASC"
+    );
+    $monthlyRevenue = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+    // Phân bổ doanh thu theo 4 gói cước
+    $stmt = $pdo->query(
+      "SELECT plan, COUNT(id) AS count, COALESCE(SUM(amount), 0) AS revenue
+       FROM orders
+       WHERE payment_status = 'paid'
+       GROUP BY plan"
+    );
+    $planBreakdown = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+    // 2. Thống kê sức khỏe dòng họ
+    $stmt = $pdo->query(
+      "SELECT status, COUNT(id) AS count FROM tenants GROUP BY status"
+    );
+    $tenantHealth = $stmt->fetchAll(PDO::FETCH_KEY_PAIR);
+
+    // 3. Nhật ký cảnh báo gia hạn gần nhất
+    $notifications = [];
+    try {
+      $stmt = $pdo->query(
+        "SELECT n.*, t.name AS clan_name, t.slug AS clan_slug
+         FROM tenant_renewal_notifications n
+         JOIN tenants t ON t.id = n.tenant_id
+         ORDER BY n.id DESC LIMIT 30"
+      );
+      $notifications = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    } catch (PDOException $e) {}
+
+    json_response([
+      'totalRevenue' => $totalRevenue,
+      'mrr' => round($totalRevenue / 12, 0),
+      'arr' => $totalRevenue,
+      'monthlyRevenue' => $monthlyRevenue,
+      'planBreakdown' => $planBreakdown,
+      'tenantHealth' => [
+        'active' => (int)($tenantHealth['active'] ?? 0),
+        'grace_period' => (int)($tenantHealth['grace_period'] ?? 0),
+        'read_only' => (int)($tenantHealth['read_only'] ?? 0),
+        'expired' => (int)($tenantHealth['expired'] ?? 0),
+        'suspended' => (int)($tenantHealth['suspended'] ?? 0),
+        'trial' => (int)($tenantHealth['trial'] ?? 0),
+      ],
+      'recentNotifications' => $notifications
+    ]);
+  } catch (PDOException $e) {
+    json_error('Lỗi tính toán chỉ số kinh doanh: ' . $e->getMessage(), 500);
+  }
+}
+
 json_error('Action not allowed', 405);
